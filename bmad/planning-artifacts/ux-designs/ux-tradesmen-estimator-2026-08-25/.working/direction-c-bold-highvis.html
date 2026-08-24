@@ -1,0 +1,297 @@
+<!--
+  DIRECTION C — "Bold / High-Vis"
+  Rationale: Near-black ground with safety-yellow and white set at maximum
+  contrast, oversized type, and thick black rules — built to be read in direct
+  sunlight or from an arm's length away, like the lettering on site signage or
+  a hard-hat sticker. No greys, no subtlety: every state is a solid block of
+  colour so status is legible at a glance, not on close inspection.
+-->
+<!--
+  KEY HEX VALUES
+  --bg:        #0a0a0a  (app background, true black)
+  --panel:     #141414  (card surface)
+  --yellow:    #ffd400  (safety yellow — primary accent / current stage)
+  --yellow-ink:#0a0a0a  (text on yellow)
+  --white:     #ffffff  (primary text)
+  --white-dim: #c9c9c9  (secondary text — used sparingly, still high contrast)
+  --rule:      #ffffff  (thick dividers/borders, full white)
+  --danger:    #ff3b30  (low stock / lead-time alert — red on black)
+  --ok:        #00e05a  (delivered / complete — green on black)
+-->
+<title>Direction C — Bold / High-Vis</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    background: #050505;
+    color: #ffffff;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  body { padding: 30px 20px 64px; }
+  .intro {
+    max-width: 900px;
+    margin: 0 auto 30px;
+    color: #c9c9c9;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+  .intro b { color: #ffd400; }
+  .stage-wrap {
+    max-width: 1500px;
+    margin: 0 auto;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 32px;
+    justify-content: center;
+  }
+  .frame-label {
+    text-align: center;
+    font-size: 12px;
+    font-weight: 900;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #ffd400;
+    margin-bottom: 10px;
+  }
+  .phone {
+    width: 390px;
+    background: #0a0a0a;
+    border: 4px solid #ffffff;
+    overflow: hidden;
+  }
+  .statusbar {
+    background: #ffd400;
+    color: #0a0a0a;
+    font-size: 12px;
+    font-weight: 900;
+    padding: 8px 18px;
+    display: flex;
+    justify-content: space-between;
+    letter-spacing: 0.03em;
+  }
+  .topbar { background: #0a0a0a; padding: 18px 18px 16px; border-bottom: 4px solid #ffffff; }
+  .app-name { font-size: 12px; font-weight: 900; letter-spacing: 0.14em; text-transform: uppercase; color: #ffd400; margin-bottom: 8px; }
+  .screen-title { font-size: 28px; font-weight: 900; letter-spacing: -0.01em; text-transform: uppercase; line-height: 1; }
+  .screen-sub { font-size: 13px; color: #c9c9c9; margin-top: 6px; font-weight: 700; }
+
+  /* ===== Dashboard ===== */
+  .job-list { padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+  .job-card { background: #141414; border: 3px solid #ffffff; padding: 16px; }
+  .job-addr { font-size: 18px; font-weight: 900; line-height: 1.2; text-transform: uppercase; }
+  .job-type { font-size: 13px; color: #c9c9c9; margin-top: 4px; font-weight: 700; }
+  .stage-row { display: flex; gap: 3px; margin-top: 14px; }
+  .stage-seg { flex: 1; height: 12px; background: #2a2a2a; }
+  .stage-seg.filled { background: #ffd400; }
+  .stage-seg.done { background: #00e05a; }
+  .stage-tag {
+    margin-top: 10px; display: inline-block; font-size: 13px; font-weight: 900;
+    letter-spacing: 0.04em; text-transform: uppercase;
+    padding: 6px 10px; background: #ffd400; color: #0a0a0a;
+  }
+  .stage-tag.done { background: #00e05a; color: #0a0a0a; }
+  .job-meta {
+    display: flex; justify-content: space-between; margin-top: 12px;
+    font-size: 12px; color: #c9c9c9; font-weight: 800; text-transform: uppercase;
+  }
+  .fab {
+    margin: 6px 16px 16px; background: #ffd400; color: #0a0a0a;
+    text-align: center; padding: 18px; font-weight: 900; font-size: 16px;
+    letter-spacing: 0.06em; text-transform: uppercase; border: 3px solid #ffffff;
+  }
+
+  /* ===== Materials ===== */
+  .mat-list { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+  .mat-row { background: #141414; border: 3px solid #ffffff; padding: 14px; }
+  .mat-row.delivered { border-color: #00e05a; }
+  .mat-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+  .mat-name { font-size: 16px; font-weight: 900; line-height: 1.25; text-transform: uppercase; }
+  .mat-row.delivered .mat-name { color: #00e05a; text-decoration: line-through; text-decoration-thickness: 3px; }
+  .mat-unit { font-size: 11.5px; color: #c9c9c9; margin-top: 3px; font-weight: 800; text-transform: uppercase; }
+  .qty-box { display: flex; align-items: center; border: 3px solid #ffffff; flex-shrink: 0; }
+  .qty-box button {
+    width: 34px; height: 34px; background: #ffffff; color: #0a0a0a;
+    border: none; font-size: 18px; font-weight: 900; font-family: inherit;
+  }
+  .qty-box input {
+    width: 44px; height: 34px; text-align: center; background: #0a0a0a; color: #ffffff;
+    border: none; font-weight: 900; font-size: 15px;
+  }
+  .wholesaler-row {
+    margin-top: 12px; display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;
+  }
+  .chip {
+    background: #0a0a0a; border: 2px solid #ffffff; padding: 7px 10px;
+    font-size: 12px; font-weight: 900; text-transform: uppercase;
+    display: flex; align-items: center; gap: 7px;
+  }
+  .chip .dot { width: 9px; height: 9px; background: #00e05a; }
+  .chip .dot.warn { background: #ff3b30; }
+  .change-link {
+    font-size: 12px; font-weight: 900; text-transform: uppercase;
+    color: #0a0a0a; background: #ffd400; padding: 6px 10px;
+  }
+  .warn-flag {
+    margin-top: 10px; background: #ff3b30; color: #ffffff;
+    font-size: 12.5px; font-weight: 900; text-transform: uppercase;
+    padding: 8px 10px; border: 2px solid #ffffff;
+  }
+  .add-item {
+    margin: 6px 16px 6px; border: 4px dashed #ffffff; color: #ffffff;
+    text-align: center; padding: 16px; font-weight: 900; font-size: 15px;
+    letter-spacing: 0.06em; text-transform: uppercase;
+  }
+  .checkoff-note {
+    padding: 12px 16px 18px; font-size: 12px; color: #c9c9c9;
+    font-weight: 800; text-transform: uppercase; text-align: center;
+  }
+</style>
+
+<div class="intro">
+  <b>Direction C — Bold / High-Vis.</b> Black ground, safety-yellow accent, oversized uppercase type and thick white rules for sunlight/outdoor readability — status is a solid block of colour (yellow = in progress, green = done, red = alert), never a subtle tint. The six-stage lifecycle renders as a chunky filled bar with a solid stage tag underneath.
+</div>
+
+<div class="stage-wrap">
+  <div>
+    <div class="frame-label">Job Dashboard</div>
+    <div class="phone">
+      <div class="statusbar"><span>SITE</span><span>4G 82%</span></div>
+      <div class="topbar">
+        <div class="app-name">Sparkline Jobs</div>
+        <div class="screen-title">Your Jobs</div>
+        <div class="screen-sub">3 open</div>
+      </div>
+
+      <div class="job-list">
+        <div class="job-card">
+          <div class="job-addr">12 Maple Grove, Dublin 15</div>
+          <div class="job-type">3-bed semi &middot; full rewire</div>
+          <div class="stage-row">
+            <div class="stage-seg filled"></div>
+            <div class="stage-seg filled"></div>
+            <div class="stage-seg"></div>
+            <div class="stage-seg"></div>
+            <div class="stage-seg"></div>
+            <div class="stage-seg"></div>
+          </div>
+          <div class="stage-tag">2/6 Materials Needed</div>
+          <div class="job-meta"><span>Today</span><span>5 items</span></div>
+        </div>
+
+        <div class="job-card">
+          <div class="job-addr">Flat 4, Cork Rd, Cork</div>
+          <div class="job-type">Fuse board upgrade</div>
+          <div class="stage-row">
+            <div class="stage-seg filled"></div>
+            <div class="stage-seg filled"></div>
+            <div class="stage-seg filled"></div>
+            <div class="stage-seg"></div>
+            <div class="stage-seg"></div>
+            <div class="stage-seg"></div>
+          </div>
+          <div class="stage-tag">3/6 Wholesaler Selected</div>
+          <div class="job-meta"><span>Yesterday</span><span>CEF Ireland</span></div>
+        </div>
+
+        <div class="job-card">
+          <div class="job-addr">8 Ashfield Park, Galway</div>
+          <div class="job-type">Socket / circuit addition — kitchen</div>
+          <div class="stage-row">
+            <div class="stage-seg done"></div>
+            <div class="stage-seg done"></div>
+            <div class="stage-seg done"></div>
+            <div class="stage-seg done"></div>
+            <div class="stage-seg done"></div>
+            <div class="stage-seg done"></div>
+          </div>
+          <div class="stage-tag done">6/6 Invoice</div>
+          <div class="job-meta"><span>3 days ago</span><span>€612.40 due</span></div>
+        </div>
+      </div>
+
+      <div class="fab">+ New Job</div>
+    </div>
+  </div>
+
+  <div>
+    <div class="frame-label">Materials Needed — 12 Maple Grove</div>
+    <div class="phone">
+      <div class="statusbar"><span>SITE</span><span>4G 82%</span></div>
+      <div class="topbar">
+        <div class="app-name">&larr; Back</div>
+        <div class="screen-title">Materials</div>
+        <div class="screen-sub">12 Maple Grove, Dublin 15</div>
+      </div>
+
+      <div class="mat-list">
+        <div class="mat-row">
+          <div class="mat-top">
+            <div>
+              <div class="mat-name">Twin &amp; Earth cable 2.5mm</div>
+              <div class="mat-unit">metres</div>
+            </div>
+            <div class="qty-box"><button>&minus;</button><input value="120"><button>+</button></div>
+          </div>
+          <div class="wholesaler-row">
+            <div class="chip"><span class="dot"></span>Chadwicks — in stock</div>
+            <div class="change-link">Change</div>
+          </div>
+        </div>
+
+        <div class="mat-row">
+          <div class="mat-top">
+            <div>
+              <div class="mat-name">Consumer unit, 10-way dual RCD</div>
+              <div class="mat-unit">unit</div>
+            </div>
+            <div class="qty-box"><button>&minus;</button><input value="1"><button>+</button></div>
+          </div>
+          <div class="wholesaler-row">
+            <div class="chip"><span class="dot"></span>Chadwicks — in stock</div>
+            <div class="change-link">Change</div>
+          </div>
+        </div>
+
+        <div class="mat-row">
+          <div class="mat-top">
+            <div>
+              <div class="mat-name">Socket outlet, twin switched</div>
+              <div class="mat-unit">each</div>
+            </div>
+            <div class="qty-box"><button>&minus;</button><input value="14"><button>+</button></div>
+          </div>
+          <div class="wholesaler-row">
+            <div class="chip"><span class="dot warn"></span>Rexel Ireland — 2-day lead</div>
+            <div class="change-link">Change</div>
+          </div>
+          <div class="warn-flag">&#9888; Order today — lead time risk</div>
+        </div>
+
+        <div class="mat-row">
+          <div class="mat-top">
+            <div>
+              <div class="mat-name">Light switch, 1-gang</div>
+              <div class="mat-unit">each</div>
+            </div>
+            <div class="qty-box"><button>&minus;</button><input value="9"><button>+</button></div>
+          </div>
+          <div class="wholesaler-row">
+            <div class="chip"><span class="dot"></span>CEF Ireland — in stock</div>
+            <div class="change-link">Change</div>
+          </div>
+        </div>
+
+        <div class="mat-row delivered">
+          <div class="mat-top">
+            <div>
+              <div class="mat-name">Cable clips, 25mm</div>
+              <div class="mat-unit">pack of 200 &middot; delivered</div>
+            </div>
+            <div class="qty-box"><button>&minus;</button><input value="200"><button>+</button></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="add-item">+ Add Material</div>
+      <div class="checkoff-note">4 of 5 pending &middot; 1 delivered</div>
+    </div>
+  </div>
+</div>

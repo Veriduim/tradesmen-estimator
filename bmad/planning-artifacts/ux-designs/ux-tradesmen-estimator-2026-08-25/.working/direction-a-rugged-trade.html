@@ -1,0 +1,435 @@
+<!--
+  DIRECTION A — "Rugged / Trade"
+  Rationale: High-contrast charcoal-and-steel surface with a single safety-orange
+  accent, thick flat borders, no shadows or gradients, chunky uppercase tap
+  targets sized for gloved thumbs and glare. Reads like a worksite tool built
+  for a van dashboard, not a SaaS product — blunt labels, no decorative copy,
+  numbers set in a tabular/monospace face so quantities and money are easy to
+  scan fast, on-site, in bad light.
+-->
+<!--
+  KEY HEX VALUES
+  --bg:        #1c1e1f  (app background, near-black charcoal)
+  --panel:     #2a2d2e  (card / row surface)
+  --panel-alt: #232526  (recessed / input surface)
+  --line:      #4a4f52  (thick borders, dividers)
+  --line-hi:   #6b7175  (lighter divider on hover/active row)
+  --ink:       #f2f0ea  (primary text, warm off-white)
+  --ink-dim:   #a9adae  (secondary text)
+  --accent:    #ff6a00  (safety orange — primary action / current stage)
+  --accent-ink:#1c1e1f  (text on accent)
+  --warn:      #ffcc00  (caution yellow — low stock / lead time flags)
+  --warn-ink:  #1c1e1f
+  --ok:        #6ad16a  (delivered / complete check)
+-->
+<title>Direction A — Rugged / Trade</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    background: #141516;
+    color: #f2f0ea;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  body {
+    padding: 28px 20px 60px;
+  }
+  .intro {
+    max-width: 900px;
+    margin: 0 auto 28px;
+    color: #a9adae;
+    font-size: 13px;
+    line-height: 1.5;
+    letter-spacing: 0.02em;
+  }
+  .intro b { color: #ff6a00; text-transform: uppercase; letter-spacing: 0.08em; }
+  .stage-wrap {
+    max-width: 1500px;
+    margin: 0 auto;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 28px;
+    justify-content: center;
+  }
+  .frame-label {
+    text-align: center;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #6b7175;
+    margin-bottom: 10px;
+  }
+  .phone {
+    width: 390px;
+    background: #1c1e1f;
+    border: 3px solid #4a4f52;
+    border-radius: 0px;
+    overflow: hidden;
+  }
+  /* status bar */
+  .statusbar {
+    background: #141516;
+    color: #a9adae;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    padding: 8px 16px;
+    display: flex;
+    justify-content: space-between;
+    border-bottom: 3px solid #4a4f52;
+  }
+  .topbar {
+    background: #1c1e1f;
+    padding: 16px 16px 14px;
+    border-bottom: 3px solid #4a4f52;
+  }
+  .app-name {
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: #ff6a00;
+    margin-bottom: 6px;
+  }
+  .screen-title {
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: 0.01em;
+    text-transform: uppercase;
+  }
+  .screen-sub {
+    font-size: 12px;
+    color: #a9adae;
+    margin-top: 3px;
+    font-weight: 600;
+  }
+
+  /* ===== Dashboard ===== */
+  .job-list { padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+  .job-card {
+    background: #2a2d2e;
+    border: 3px solid #4a4f52;
+    padding: 14px;
+  }
+  .job-card.active { border-color: #ff6a00; }
+  .job-addr {
+    font-size: 16px;
+    font-weight: 800;
+    line-height: 1.25;
+  }
+  .job-type {
+    font-size: 12px;
+    color: #a9adae;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-top: 3px;
+  }
+  .stage-row {
+    display: flex;
+    gap: 4px;
+    margin-top: 12px;
+  }
+  .stage-seg {
+    flex: 1;
+    height: 8px;
+    background: #4a4f52;
+  }
+  .stage-seg.filled { background: #ff6a00; }
+  .stage-seg.done { background: #6ad16a; }
+  .stage-tag {
+    margin-top: 8px;
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 4px 8px;
+    background: #141516;
+    border: 2px solid #ff6a00;
+    color: #ff6a00;
+  }
+  .stage-tag.done { border-color: #6ad16a; color: #6ad16a; }
+  .job-meta {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 10px;
+    font-size: 11px;
+    color: #a9adae;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+  .fab {
+    margin: 4px 14px 14px;
+    background: #ff6a00;
+    color: #1c1e1f;
+    text-align: center;
+    padding: 16px;
+    font-weight: 800;
+    font-size: 13px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    border: 3px solid #1c1e1f;
+  }
+
+  /* ===== Materials screen ===== */
+  .mat-list { padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+  .mat-row {
+    background: #2a2d2e;
+    border: 3px solid #4a4f52;
+    padding: 12px;
+  }
+  .mat-row.delivered { border-color: #6ad16a; opacity: 0.75; }
+  .mat-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .mat-name { font-size: 14px; font-weight: 800; line-height: 1.3; }
+  .mat-row.delivered .mat-name { text-decoration: line-through; text-decoration-thickness: 2px; }
+  .qty-box {
+    display: flex;
+    align-items: center;
+    border: 2px solid #6b7175;
+    flex-shrink: 0;
+  }
+  .qty-box button {
+    width: 30px; height: 30px;
+    background: #141516;
+    color: #f2f0ea;
+    border: none;
+    font-size: 16px;
+    font-weight: 800;
+    font-family: inherit;
+  }
+  .qty-box input {
+    width: 40px; height: 30px;
+    text-align: center;
+    background: #232526;
+    color: #f2f0ea;
+    border: none;
+    border-left: 2px solid #6b7175;
+    border-right: 2px solid #6b7175;
+    font-weight: 800;
+    font-size: 13px;
+    font-family: "Consolas", "SFMono-Regular", Menlo, monospace;
+  }
+  .mat-unit { font-size: 10px; color: #a9adae; font-weight: 700; margin-top: 2px; text-transform: uppercase; }
+  .wholesaler-row {
+    margin-top: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .chip {
+    background: #141516;
+    border: 2px solid #6b7175;
+    padding: 6px 10px;
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .chip .dot { width: 7px; height: 7px; background: #6ad16a; }
+  .chip .dot.warn { background: #ffcc00; }
+  .change-link {
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #ff6a00;
+    border-bottom: 2px solid #ff6a00;
+    padding-bottom: 1px;
+  }
+  .warn-flag {
+    margin-top: 8px;
+    background: #ffcc00;
+    color: #1c1e1f;
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 6px 8px;
+    border: 2px solid #1c1e1f;
+  }
+  .add-item {
+    margin: 4px 14px 4px;
+    border: 3px dashed #6b7175;
+    color: #a9adae;
+    text-align: center;
+    padding: 14px;
+    font-weight: 800;
+    font-size: 13px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .checkoff-note {
+    padding: 0 14px 14px;
+    font-size: 11px;
+    color: #a9adae;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+</style>
+
+<div class="intro">
+  <b>Direction A — Rugged / Trade.</b> Built for a phone in a hi-vis pocket, not a boardroom monitor: heavy borders, one accent colour, tabular numerals, and tap targets sized for a gloved thumb. Job Details → Materials Needed → Wholesaler Selected → Materials Delivered → Job Completed → Invoice is shown as a blunt 6-block bar on every job card.
+</div>
+
+<div class="stage-wrap">
+  <div>
+    <div class="frame-label">Job Dashboard</div>
+    <div class="phone">
+      <div class="statusbar"><span>SITE MODE</span><span>4G · 82%</span></div>
+      <div class="topbar">
+        <div class="app-name">Sparkline Jobs</div>
+        <div class="screen-title">Your Jobs</div>
+        <div class="screen-sub">3 open · sorted by last updated</div>
+      </div>
+
+      <div class="job-list">
+        <div class="job-card active">
+          <div class="job-addr">12 Maple Grove, Dublin 15</div>
+          <div class="job-type">3-bed semi &middot; full rewire</div>
+          <div class="stage-row">
+            <div class="stage-seg filled"></div>
+            <div class="stage-seg filled"></div>
+            <div class="stage-seg"></div>
+            <div class="stage-seg"></div>
+            <div class="stage-seg"></div>
+            <div class="stage-seg"></div>
+          </div>
+          <div class="stage-tag">2 / 6 — Materials Needed</div>
+          <div class="job-meta"><span>Updated today</span><span>5 items</span></div>
+        </div>
+
+        <div class="job-card">
+          <div class="job-addr">Flat 4, Cork Rd, Cork</div>
+          <div class="job-type">Fuse board upgrade</div>
+          <div class="stage-row">
+            <div class="stage-seg filled"></div>
+            <div class="stage-seg filled"></div>
+            <div class="stage-seg filled"></div>
+            <div class="stage-seg"></div>
+            <div class="stage-seg"></div>
+            <div class="stage-seg"></div>
+          </div>
+          <div class="stage-tag">3 / 6 — Wholesaler Selected</div>
+          <div class="job-meta"><span>Updated yesterday</span><span>CEF Ireland</span></div>
+        </div>
+
+        <div class="job-card">
+          <div class="job-addr">8 Ashfield Park, Galway</div>
+          <div class="job-type">Socket / circuit addition — kitchen</div>
+          <div class="stage-row">
+            <div class="stage-seg done"></div>
+            <div class="stage-seg done"></div>
+            <div class="stage-seg done"></div>
+            <div class="stage-seg done"></div>
+            <div class="stage-seg done"></div>
+            <div class="stage-seg done"></div>
+          </div>
+          <div class="stage-tag done">6 / 6 — Invoice</div>
+          <div class="job-meta"><span>Updated 3 days ago</span><span>€612.40 due</span></div>
+        </div>
+      </div>
+
+      <div class="fab">+ New Job</div>
+    </div>
+  </div>
+
+  <div>
+    <div class="frame-label">Materials Needed — 12 Maple Grove</div>
+    <div class="phone">
+      <div class="statusbar"><span>SITE MODE</span><span>4G · 82%</span></div>
+      <div class="topbar">
+        <div class="app-name">&larr; Back to Job</div>
+        <div class="screen-title">Materials</div>
+        <div class="screen-sub">12 Maple Grove, Dublin 15 &middot; full rewire</div>
+      </div>
+
+      <div class="mat-list">
+        <div class="mat-row">
+          <div class="mat-top">
+            <div>
+              <div class="mat-name">Twin &amp; Earth cable 2.5mm</div>
+              <div class="mat-unit">metres</div>
+            </div>
+            <div class="qty-box"><button>&minus;</button><input value="120"><button>+</button></div>
+          </div>
+          <div class="wholesaler-row">
+            <div class="chip"><span class="dot"></span>Chadwicks Electrical — in stock</div>
+            <div class="change-link">Change</div>
+          </div>
+        </div>
+
+        <div class="mat-row">
+          <div class="mat-top">
+            <div>
+              <div class="mat-name">Consumer unit, 10-way dual RCD</div>
+              <div class="mat-unit">unit</div>
+            </div>
+            <div class="qty-box"><button>&minus;</button><input value="1"><button>+</button></div>
+          </div>
+          <div class="wholesaler-row">
+            <div class="chip"><span class="dot"></span>Chadwicks Electrical — in stock</div>
+            <div class="change-link">Change</div>
+          </div>
+        </div>
+
+        <div class="mat-row">
+          <div class="mat-top">
+            <div>
+              <div class="mat-name">Socket outlet, twin switched</div>
+              <div class="mat-unit">each</div>
+            </div>
+            <div class="qty-box"><button>&minus;</button><input value="14"><button>+</button></div>
+          </div>
+          <div class="wholesaler-row">
+            <div class="chip"><span class="dot warn"></span>Rexel Ireland — 2-day lead</div>
+            <div class="change-link">Change</div>
+          </div>
+          <div class="warn-flag">&#9888; Lead time risk — order today to hold schedule</div>
+        </div>
+
+        <div class="mat-row">
+          <div class="mat-top">
+            <div>
+              <div class="mat-name">Light switch, 1-gang</div>
+              <div class="mat-unit">each</div>
+            </div>
+            <div class="qty-box"><button>&minus;</button><input value="9"><button>+</button></div>
+          </div>
+          <div class="wholesaler-row">
+            <div class="chip"><span class="dot"></span>CEF Ireland — in stock</div>
+            <div class="change-link">Change</div>
+          </div>
+        </div>
+
+        <div class="mat-row delivered">
+          <div class="mat-top">
+            <div>
+              <div class="mat-name">Cable clips, 25mm</div>
+              <div class="mat-unit">pack of 200</div>
+            </div>
+            <div class="qty-box"><button>&minus;</button><input value="200"><button>+</button></div>
+          </div>
+          <div class="wholesaler-row">
+            <div class="chip"><span class="dot"></span>Chadwicks Electrical — delivered</div>
+            <div class="change-link">&#10003; Done</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="add-item">+ Add Material</div>
+      <div class="checkoff-note">4 of 5 lines pending &middot; 1 delivered</div>
+    </div>
+  </div>
+</div>

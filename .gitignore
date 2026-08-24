@@ -1,0 +1,9 @@
+# BMad run artifacts (working memory, regenerated per run — never committed)
+.memlog.md
+
+# BMad ephemeral rendered workflow snapshots (regenerated on each skill activation)
+_bmad/render/
+
+# OS
+.DS_Store
+Thumbs.db
