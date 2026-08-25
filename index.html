@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Sparkline &mdash; Job Estimator</title>
+<link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+<div class="app-shell">
+
+  <header class="app-header" id="app-header" hidden>
+    <span class="app-header-name">Sparkline</span>
+    <span class="app-header-user" id="app-header-user"></span>
+    <button class="app-header-logout" id="btn-logout" type="button">Log out</button>
+  </header>
+
+  <main id="main">
+
+    <!-- LOGIN -->
+    <section id="screen-login" class="screen">
+      <div class="login-wrap">
+        <div class="brand">
+          <div class="brand-mark">S</div>
+          <div class="brand-name">Sparkline</div>
+        </div>
+        <h1 class="screen-title">Welcome back</h1>
+        <p class="screen-sub">Sign in to pick up your jobs where you left off.</p>
+
+        <form id="login-form" class="login-form" novalidate>
+          <label class="field">
+            <span class="field-label">Name</span>
+            <input type="text" id="login-name" name="name" placeholder="Your name" autocomplete="name" />
+          </label>
+          <p class="field-error" id="login-name-error" hidden>Enter your name to continue.</p>
+
+          <label class="field">
+            <span class="field-label">Email (optional)</span>
+            <input type="email" id="login-email" name="email" placeholder="you@example.com" autocomplete="email" />
+          </label>
+
+          <button type="submit" class="btn btn-primary btn-block">Sign in</button>
+          <p class="login-note">Demo login &mdash; no password, nothing is sent anywhere.</p>
+        </form>
+      </div>
+    </section>
+
+    <!-- JOB PICKER / DASHBOARD -->
+    <section id="screen-job-picker" class="screen" hidden>
+      <div class="topbar">
+        <div class="screen-title">Your Jobs</div>
+        <div class="screen-sub" id="job-count-sub"></div>
+      </div>
+
+      <div id="existing-jobs" class="job-list"></div>
+
+      <div class="picker-section">
+        <div class="picker-heading">Start a new job</div>
+        <div id="job-presets" class="preset-list"></div>
+      </div>
+    </section>
+
+    <!-- JOB DETAIL -->
+    <section id="screen-job-detail" class="screen" hidden>
+      <div class="topbar">
+        <button class="back-link" id="btn-back-to-jobs" type="button">&larr; Back to jobs</button>
+        <div class="screen-title" id="job-detail-title"></div>
+        <div class="screen-sub" id="job-detail-sub"></div>
+      </div>
+
+      <div class="stepper" id="job-stepper"></div>
+      <div class="stage-caption" id="job-stage-caption"></div>
+
+      <div id="job-detail-body" class="job-detail-body"></div>
+    </section>
+
+  </main>
+
+  <div id="toast" class="toast" hidden></div>
+
+</div>
+
+<script src="js/data.js"></script>
+<script src="js/state.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
