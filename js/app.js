@@ -26,6 +26,8 @@
   const ui = {
     openWholesalerFor: null,
     addItemOpen: false,
+    addItemQuery: '', // live search-as-you-type text for the add-material picker
+    addItemHighlightIndex: 0, // keyboard-roving-highlight index into the current filtered results
     removeBlockedFor: null,
     payBlocked: false,
     qtyNotice: null, // inline feedback when a quantity edit gets clamped to MAX_QTY
@@ -187,6 +189,19 @@
     }
   }
 
+  // Re-renders just the job-detail body without touching the rest of the
+  // page or persisting/re-reading state — used for the add-material
+  // search-as-you-type input so a full render() doesn't strip focus out
+  // of the text field on every keystroke.
+  function refreshJobDetailBody() {
+    const job = findJob(state.currentJobId);
+    // Guard against a stale input event firing after the job was removed
+    // or its status moved on (e.g. via another tab) — only the
+    // materials-needed screen ever calls this partial-render path.
+    if (!job || job.status !== 'materials-needed') return;
+    document.getElementById('job-detail-body').innerHTML = materialsNeededHTML(job);
+  }
+
   function showScreen(id) {
     ['screen-login', 'screen-job-picker', 'screen-job-detail'].forEach(function (sid) {
       document.getElementById(sid).hidden = sid !== id;
@@ -197,6 +212,68 @@
   // Job picker screen
   // ---------------------------------------------------------------------
 
+  // A job card's status badge: "Active" statuses get the accent treatment,
+  // the terminal `invoice` status gets the "done" treatment — matches the
+  // Active/Completed section split below.
+  function jobCardHTML(job) {
+    const metaRight =
+      job.status === 'invoice'
+        ? formatEUR(invoiceTotal(job)) + ' due'
+        : job.materials.length + ' item' + (job.materials.length === 1 ? '' : 's');
+    const isCompleted = job.status === 'invoice';
+    // The Completed section groups by the terminal `invoice` status, but
+    // its own stage label ("Invoice") doesn't read as "done" on its own —
+    // give it distinct badge copy so the section heading and card badge
+    // use consistent completed/active vocabulary.
+    const badgeLabel = isCompleted ? 'Invoiced' : STATUS_LABELS[job.status] || 'Unknown';
+    return (
+      '<button type="button" class="job-card" data-action="open-job" data-job-id="' +
+      job.id +
+      '">' +
+      '<div class="job-card-top">' +
+      '<div class="job-addr">' +
+      escapeHtml(job.address) +
+      '</div>' +
+      '<span class="status-badge' +
+      (isCompleted ? ' status-badge-done' : ' status-badge-active') +
+      '">' +
+      escapeHtml(badgeLabel) +
+      '</span>' +
+      '</div>' +
+      '<div class="job-type">' +
+      escapeHtml(job.propertySize) +
+      ' · ' +
+      escapeHtml(job.jobTypeLabel) +
+      '</div>' +
+      '<div class="stepper">' +
+      stepperHTML(job.status) +
+      '</div>' +
+      '<div class="stage-caption">' +
+      stageCaption(job.status) +
+      '</div>' +
+      '<div class="job-meta"><span>' +
+      relativeTime(job.updatedAt) +
+      '</span><span>' +
+      metaRight +
+      '</span></div>' +
+      '</button>'
+    );
+  }
+
+  // Renders one dashboard section (heading + cards); returns '' (hiding
+  // the header entirely) when there are no jobs in that group.
+  function jobSectionHTML(label, jobs) {
+    if (!jobs.length) return '';
+    return (
+      '<div class="job-section-heading">' +
+      escapeHtml(label) +
+      ' <span class="job-section-count">' +
+      jobs.length +
+      '</span></div>' +
+      jobs.map(jobCardHTML).join('')
+    );
+  }
+
   function renderJobPicker() {
     const jobsWrap = document.getElementById('existing-jobs');
     const countSub = document.getElementById('job-count-sub');
@@ -206,43 +283,25 @@
       return (b.updatedAt || 0) - (a.updatedAt || 0);
     });
 
-    countSub.textContent = jobs.length
-      ? jobs.length + ' open job' + (jobs.length === 1 ? '' : 's')
-      : 'No jobs yet — pick a job type below to start one';
+    const activeJobs = jobs.filter(function (j) {
+      return j.status !== 'invoice';
+    });
+    const completedJobs = jobs.filter(function (j) {
+      return j.status === 'invoice';
+    });
 
-    jobsWrap.innerHTML = jobs
-      .map(function (job) {
-        const metaRight =
-          job.status === 'invoice'
-            ? formatEUR(invoiceTotal(job)) + ' due'
-            : job.materials.length + ' item' + (job.materials.length === 1 ? '' : 's');
-        return (
-          '<button type="button" class="job-card" data-action="open-job" data-job-id="' +
-          job.id +
-          '">' +
-          '<div class="job-addr">' +
-          escapeHtml(job.address) +
-          '</div>' +
-          '<div class="job-type">' +
-          escapeHtml(job.propertySize) +
-          ' · ' +
-          escapeHtml(job.jobTypeLabel) +
-          '</div>' +
-          '<div class="stepper">' +
-          stepperHTML(job.status) +
-          '</div>' +
-          '<div class="stage-caption">' +
-          stageCaption(job.status) +
-          '</div>' +
-          '<div class="job-meta"><span>' +
-          relativeTime(job.updatedAt) +
-          '</span><span>' +
-          metaRight +
-          '</span></div>' +
-          '</button>'
-        );
-      })
-      .join('');
+    // Reflects the Active/Completed split below rather than one combined
+    // "open jobs" count, which reads as wrong once any job is completed.
+    if (!jobs.length) {
+      countSub.textContent = 'No jobs yet — pick a job type below to start one';
+    } else if (completedJobs.length) {
+      countSub.textContent =
+        activeJobs.length + ' active · ' + completedJobs.length + ' completed';
+    } else {
+      countSub.textContent = activeJobs.length + ' open job' + (activeJobs.length === 1 ? '' : 's');
+    }
+
+    jobsWrap.innerHTML = jobSectionHTML('Active', activeJobs) + jobSectionHTML('Completed', completedJobs);
 
     presetsWrap.innerHTML = JOB_PRESETS.map(function (preset) {
       return (
@@ -305,6 +364,8 @@
     state.currentJobId = job.id;
     persist();
     ui.addItemOpen = false;
+    ui.addItemQuery = '';
+    ui.addItemHighlightIndex = 0;
     ui.openWholesalerFor = null;
     ui.qtyNotice = null;
     render();
@@ -475,7 +536,7 @@
       .join('');
 
     const addBlock = ui.addItemOpen
-      ? addItemFormHTML()
+      ? addItemFormHTML(job)
       : '<button type="button" class="add-item" data-action="add-item-open">+ Add material</button>';
 
     const removeBlockedNote = !canRemove
@@ -513,23 +574,82 @@
     );
   }
 
-  function addItemFormHTML() {
+  // Catalog ids not yet on this job, matching the query (case-insensitive
+  // substring), name-starts-with matches sorted first. Shared by the
+  // rendered picker and the keyboard-nav handler so both agree on order.
+  function filteredMaterialResultIds(job, query) {
+    const alreadyAddedCatalogIds = {};
+    job.materials.forEach(function (m) {
+      if (m.catalogId) alreadyAddedCatalogIds[m.catalogId] = true;
+    });
+
+    const ids = Object.keys(MATERIAL_CATALOG).filter(function (id) {
+      if (alreadyAddedCatalogIds[id]) return false;
+      if (!query) return true;
+      return MATERIAL_CATALOG[id].name.toLowerCase().indexOf(query) !== -1;
+    });
+
+    if (!query) return ids;
+    return ids.slice().sort(function (a, b) {
+      const aStarts = MATERIAL_CATALOG[a].name.toLowerCase().indexOf(query) === 0;
+      const bStarts = MATERIAL_CATALOG[b].name.toLowerCase().indexOf(query) === 0;
+      if (aStarts === bStarts) return 0;
+      return aStarts ? -1 : 1;
+    });
+  }
+
+  // Search-as-you-type picker restricted to MATERIAL_CATALOG — the only
+  // way to add a material, so every addable item still carries real
+  // per-wholesaler pricing. No freeform name/price entry.
+  function addItemFormHTML(job) {
+    const query = (ui.addItemQuery || '').trim().toLowerCase();
+    const matchIds = filteredMaterialResultIds(job, query);
+    const highlightIndex = Math.min(ui.addItemHighlightIndex || 0, Math.max(matchIds.length - 1, 0));
+
+    let resultsHTML;
+    if (matchIds.length) {
+      resultsHTML =
+        '<div class="material-results" aria-live="polite">' +
+        matchIds
+          .map(function (id, i) {
+            const cat = MATERIAL_CATALOG[id];
+            const cheapest = cheapestOption(cat);
+            return (
+              '<button type="button" class="material-result' +
+              (i === highlightIndex ? ' highlighted' : '') +
+              '" data-action="add-item-pick" data-catalog-id="' +
+              id +
+              '">' +
+              '<div class="material-result-name">' +
+              escapeHtml(cat.name) +
+              '</div>' +
+              '<div class="material-result-meta">' +
+              escapeHtml(cat.unit) +
+              (cheapest ? ' · from ' + formatEUR(cheapest.unitPrice) : '') +
+              '</div>' +
+              '</button>'
+            );
+          })
+          .join('') +
+        '</div>';
+    } else if (query) {
+      resultsHTML =
+        '<p class="material-results-empty" aria-live="polite">No materials match "' +
+        escapeHtml(ui.addItemQuery.trim()) +
+        '".</p>';
+    } else {
+      resultsHTML = '<p class="material-results-empty" aria-live="polite">All materials already added.</p>';
+    }
+
     return (
       '<div class="add-item-form">' +
-      '<label class="field"><span class="field-label">Material name</span>' +
-      '<input type="text" id="add-item-name" placeholder="e.g. Junction box"></label>' +
-      '<div class="add-item-form-row">' +
-      '<label class="field"><span class="field-label">Unit</span>' +
-      '<input type="text" id="add-item-unit" placeholder="each"></label>' +
-      '<label class="field"><span class="field-label">Qty</span>' +
-      '<input type="text" inputmode="numeric" id="add-item-qty" placeholder="1"></label>' +
-      '</div>' +
-      '<label class="field"><span class="field-label">Est. price per unit (€)</span>' +
-      '<input type="text" inputmode="decimal" id="add-item-price" placeholder="0.00"></label>' +
-      '<p class="inline-error" id="add-item-error" hidden></p>' +
+      '<input type="text" id="add-item-search" class="search-input" placeholder="Search materials…" ' +
+      'aria-label="Search materials to add" value="' +
+      escapeHtml(ui.addItemQuery || '') +
+      '" autocomplete="off">' +
+      resultsHTML +
       '<div class="add-item-form-actions">' +
       '<button type="button" class="btn btn-secondary" data-action="add-item-cancel">Cancel</button>' +
-      '<button type="button" class="btn btn-primary" data-action="add-item-submit">Add</button>' +
       '</div>' +
       '</div>'
     );
@@ -857,98 +977,30 @@
     render();
   }
 
-  // Custom (user-typed) materials don't come from the catalog, so they
-  // have no natural per-wholesaler pricing — but making the mandatory
-  // wholesaler choice meaningful means the 3 options can't be identical.
-  // Apply the same kind of deterministic price/stock/distance spread the
-  // catalog uses, keyed off the entered base price.
-  const CUSTOM_MATERIAL_WHOLESALER_VARIATION = [
-    { wholesalerId: 'chadwicks', priceFactor: 1.0, stock: 'in-stock', distanceKm: 4.2 },
-    { wholesalerId: 'rexel', priceFactor: 0.93, stock: 'lead-time', leadDays: 2, distanceKm: 6.8 },
-    { wholesalerId: 'cef', priceFactor: 1.07, stock: 'in-stock', distanceKm: 9.1 },
-  ];
-
-  function buildCustomMaterialOptions(basePrice) {
-    return CUSTOM_MATERIAL_WHOLESALER_VARIATION.map(function (v) {
-      const opt = {
-        wholesalerId: v.wholesalerId,
-        unitPrice: Math.round(basePrice * v.priceFactor * 100) / 100,
-        stock: v.stock,
-        distanceKm: v.distanceKm,
-      };
-      if (v.stock === 'lead-time') opt.leadDays = v.leadDays;
-      return opt;
-    });
-  }
-
-  function handleAddItemSubmit() {
+  function handleAddItemPick(catalogId) {
     const job = findJob(state.currentJobId);
     if (!job) return;
-    const nameEl = document.getElementById('add-item-name');
-    const unitEl = document.getElementById('add-item-unit');
-    const qtyEl = document.getElementById('add-item-qty');
-    const priceEl = document.getElementById('add-item-price');
-    const errorEl = document.getElementById('add-item-error');
+    const cat = MATERIAL_CATALOG[catalogId];
+    if (!cat) return;
 
-    function showFormError(msg) {
-      if (errorEl) {
-        errorEl.textContent = msg;
-        errorEl.hidden = false;
-      }
-    }
-
-    const name = (nameEl.value || '').trim();
-    if (!name) {
-      showFormError('Enter a material name to add it.');
-      nameEl.focus();
-      return;
-    }
-
-    const unit = (unitEl.value || '').trim() || 'each';
-
-    let qty = parseInt(qtyEl.value, 10);
-    if (!Number.isFinite(qty) || qty < 1) qty = 1;
-    let qtyClamped = false;
-    if (qty > MAX_QTY) {
-      qty = MAX_QTY;
-      qtyClamped = true;
-    }
-
-    let price = parseFloat(priceEl.value);
-    if (!Number.isFinite(price) || price < 0) price = 0;
-    let priceClamped = false;
-    if (price > MAX_UNIT_PRICE) {
-      price = MAX_UNIT_PRICE;
-      priceClamped = true;
-    }
-
-    if (qtyClamped || priceClamped) {
-      // Correct the fields in place and ask the user to confirm rather
-      // than silently accepting an absurd total — mirrors the Remove/Pay
-      // block-with-inline-message pattern used elsewhere in the app.
-      qtyEl.value = String(qty);
-      priceEl.value = String(price);
-      const parts = [];
-      if (qtyClamped) parts.push('quantity to ' + qty.toLocaleString());
-      if (priceClamped) parts.push('price to ' + formatEUR(price));
-      showFormError('Capped ' + parts.join(' and ') + '. Review and tap Add again.');
-      return;
-    }
-
-    if (errorEl) errorEl.hidden = true;
-
-    const options = buildCustomMaterialOptions(price);
+    // Guard against a stale/duplicate click adding the same catalog item twice.
+    const alreadyAdded = job.materials.some(function (m) {
+      return m.catalogId === catalogId;
+    });
+    if (alreadyAdded) return;
 
     job.materials.push({
       id: generateId('mat'),
-      catalogId: null,
-      name: name,
-      unit: unit,
-      qty: qty,
-      options: options,
+      catalogId: catalogId,
+      name: cat.name,
+      unit: cat.unit,
+      qty: 1,
+      options: cat.options,
     });
 
     ui.addItemOpen = false;
+    ui.addItemQuery = '';
+    ui.addItemHighlightIndex = 0;
     touchJob(job);
     persist();
     render();
@@ -1039,6 +1091,8 @@
       state.currentJobId = null;
       ui.openWholesalerFor = null;
       ui.addItemOpen = false;
+      ui.addItemQuery = '';
+      ui.addItemHighlightIndex = 0;
       ui.qtyNotice = null;
       persist();
       render();
@@ -1055,6 +1109,8 @@
           state.currentJobId = el.getAttribute('data-job-id');
           ui.openWholesalerFor = null;
           ui.addItemOpen = false;
+          ui.addItemQuery = '';
+          ui.addItemHighlightIndex = 0;
           ui.qtyNotice = null;
           persist();
           render();
@@ -1071,16 +1127,25 @@
         case 'remove-material':
           if (!el.disabled) handleRemoveMaterial(materialId);
           break;
-        case 'add-item-open':
+        case 'add-item-open': {
           ui.addItemOpen = true;
+          ui.addItemQuery = '';
+          ui.addItemHighlightIndex = 0;
           render();
+          // Picker's whole point is fast keyboard entry — focus it
+          // immediately instead of making the user click again.
+          const searchInput = document.getElementById('add-item-search');
+          if (searchInput) searchInput.focus();
           break;
+        }
         case 'add-item-cancel':
           ui.addItemOpen = false;
+          ui.addItemQuery = '';
+          ui.addItemHighlightIndex = 0;
           render();
           break;
-        case 'add-item-submit':
-          handleAddItemSubmit();
+        case 'add-item-pick':
+          handleAddItemPick(el.getAttribute('data-catalog-id'));
           break;
         case 'wholesaler-toggle':
           ui.openWholesalerFor = ui.openWholesalerFor === materialId ? null : materialId;
@@ -1106,6 +1171,59 @@
       }
       if (e.target && e.target.id === 'invoice-materials-toggle') {
         handleInvoiceToggle(e.target.checked);
+      }
+    });
+
+    document.body.addEventListener('input', function (e) {
+      if (e.target && e.target.id === 'add-item-search') {
+        ui.addItemQuery = e.target.value;
+        ui.addItemHighlightIndex = 0;
+        // Transient UI-only state — not persisted — so just refresh the
+        // body (not a full render()) and restore focus/cursor so typing
+        // isn't interrupted on every keystroke.
+        const prevScrollTop = (document.querySelector('.material-results') || {}).scrollTop;
+        refreshJobDetailBody();
+        const input = document.getElementById('add-item-search');
+        if (input) {
+          input.focus();
+          const pos = input.value.length;
+          try {
+            input.setSelectionRange(pos, pos);
+          } catch (err) {
+            // Some input types don't support selection ranges — harmless.
+          }
+        }
+        const resultsList = document.querySelector('.material-results');
+        if (resultsList && prevScrollTop !== undefined) resultsList.scrollTop = prevScrollTop;
+      }
+    });
+
+    document.body.addEventListener('keydown', function (e) {
+      if (!e.target || e.target.id !== 'add-item-search') return;
+      const job = findJob(state.currentJobId);
+      if (!job) return;
+      const query = (ui.addItemQuery || '').trim().toLowerCase();
+      const matchIds = filteredMaterialResultIds(job, query);
+      if (!matchIds.length) return;
+
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        ui.addItemHighlightIndex = Math.min((ui.addItemHighlightIndex || 0) + 1, matchIds.length - 1);
+        // refreshJobDetailBody() rebuilds this input's DOM node, so the
+        // pre-render `e.target` reference is detached afterward — re-query.
+        refreshJobDetailBody();
+        const afterDown = document.getElementById('add-item-search');
+        if (afterDown) afterDown.focus();
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        ui.addItemHighlightIndex = Math.max((ui.addItemHighlightIndex || 0) - 1, 0);
+        refreshJobDetailBody();
+        const afterUp = document.getElementById('add-item-search');
+        if (afterUp) afterUp.focus();
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        const pickIndex = Math.min(ui.addItemHighlightIndex || 0, matchIds.length - 1);
+        handleAddItemPick(matchIds[pickIndex]);
       }
     });
 

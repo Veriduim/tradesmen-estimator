@@ -44,4 +44,20 @@ Append-only. Each entry: `source_spec`, `summary`, `evidence`.
 
 - source_spec: `bmad/implementation-artifacts/spec-job-flow-prototype.md`
   summary: "Add material" fields aren't wrapped in a `<form>`, so pressing Enter doesn't submit.
-  evidence: Forces mouse-only interaction to add a custom material (blind-hunter review).
+  evidence: Forces mouse-only interaction to add a custom material (blind-hunter review). Superseded by `spec-dashboard-pricing-material-search.md`, which removed freeform add-material entirely in favor of a search picker.
+
+- source_spec: `bmad/implementation-artifacts/spec-dashboard-pricing-material-search.md`
+  summary: No debounce on the add-material search input; every keystroke re-renders the full materials list.
+  evidence: Harmless at this catalog size (15 items) but redoes more work than necessary per keystroke (edge-case-hunter + blind-hunter, independently).
+
+- source_spec: `bmad/implementation-artifacts/spec-dashboard-pricing-material-search.md`
+  summary: `mcb-6a` and `mcb-20a` share an identical researched baseline price (€3.47) despite being different-rated breakers.
+  evidence: Plausible (some retailers price single-pole MCBs flat regardless of rating) but worth a provenance footnote confirming it isn't a copy/paste artifact from the research pass (blind-hunter review).
+
+- source_spec: `bmad/implementation-artifacts/spec-dashboard-pricing-material-search.md`
+  summary: Legacy freeform (`catalogId: null`) materials from before this change aren't explicitly covered by the spec or verification checklist now that add-material is catalog-only.
+  evidence: They still render fine and don't block re-adding the same-named catalog item, but the interaction wasn't tested (blind-hunter review). Low real-world impact for a prototype with no real user data at stake.
+
+- source_spec: `bmad/implementation-artifacts/spec-dashboard-pricing-material-search.md`
+  summary: Provenance comment claims every catalog entry's per-wholesaler options average exactly to the researched baseline; `socket-twin-switched` rounds to €2.78 but isn't exact (€2.7833...).
+  evidence: Not user-visible (the app never displays an average), a documentation self-consistency nit only (verification-gap review).
