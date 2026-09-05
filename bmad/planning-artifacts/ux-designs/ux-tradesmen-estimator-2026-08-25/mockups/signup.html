@@ -1,0 +1,160 @@
+<!--
+  KEY SCREEN — Signup (replaces Login)
+  Governed by: DESIGN.md (Colors, Typography, Shapes, Components.brand-mark/
+  primary-button/status-chip aren't used here except brand-mark; form field
+  styling per Components) and EXPERIENCE.md (Information Architecture ->
+  Signup row, Component Patterns -> Signup form / Trade selector, State
+  Patterns -> "Signup - missing/invalid field", Voice and Tone table,
+  Accessibility Floor).
+  Two states shown side by side: at-rest, and mid-validation-error.
+-->
+<title>Key Screen — TradesLine Signup</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    background: #eef1f5;
+    color: #1e293b;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  body { padding: 32px 20px 64px; }
+  .intro { max-width: 900px; margin: 0 auto 30px; color: #64748b; font-size: 13px; line-height: 1.6; }
+  .intro b { color: #0d9488; }
+  .wrap { max-width: 1300px; margin: 0 auto; display: flex; flex-wrap: wrap; gap: 32px; justify-content: center; }
+  .frame-label { text-align: center; font-size: 12px; font-weight: 600; color: #94a3b8; margin-bottom: 10px; }
+  .phone {
+    width: 390px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 28px;
+    overflow: hidden; box-shadow: 0 20px 40px -12px rgba(15,23,42,0.18), 0 2px 6px rgba(15,23,42,0.06);
+  }
+  .statusbar { background: #fff; color: #94a3b8; font-size: 11px; font-weight: 600; padding: 12px 20px 4px; display: flex; justify-content: space-between; }
+  .content { padding: 8px 24px 28px; }
+  .brand { display: flex; align-items: center; gap: 10px; margin: 8px 0 22px; }
+  .brand-mark {
+    width: 32px; height: 32px; border-radius: 6px; background: #0d9488; color: #fff;
+    display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 15px;
+  }
+  .brand-name { font-size: 15px; font-weight: 700; }
+  h1 { font-size: 24px; font-weight: 700; letter-spacing: -0.01em; }
+  .sub { font-size: 13px; color: #64748b; margin-top: 4px; line-height: 1.5; }
+  form { margin-top: 22px; display: flex; flex-direction: column; gap: 14px; }
+  .field-label { display: block; font-size: 12px; font-weight: 600; color: #1e293b; margin-bottom: 6px; }
+  .field-hint { font-size: 11.5px; color: #94a3b8; margin-top: 4px; }
+  .input {
+    width: 100%; background: #f1f5f9; border: 1.5px solid transparent; border-radius: 10px;
+    padding: 11px 12px; font-size: 14px; color: #1e293b; font-family: inherit;
+  }
+  .input.err { border-color: #dc2626; background: #fef2f2; }
+  .err-text { font-size: 11.5px; color: #dc2626; font-weight: 600; margin-top: 4px; }
+  .trade-group { display: flex; flex-wrap: wrap; gap: 8px; }
+  .trade-chip {
+    border: 1.5px solid #e2e8f0; border-radius: 999px; padding: 8px 14px; font-size: 13px;
+    font-weight: 600; color: #475569; background: #fff;
+  }
+  .trade-chip.selected { background: #ccfbf1; border-color: #0d9488; color: #0f766e; }
+  .addr-row { display: flex; gap: 10px; }
+  .addr-row .field { flex: 1; }
+  .btn-primary {
+    margin-top: 6px; background: #0d9488; color: #fff; text-align: center; padding: 14px;
+    font-weight: 600; font-size: 14px; border-radius: 14px; box-shadow: 0 8px 18px -6px rgba(13,148,136,0.5);
+  }
+  .btn-primary.disabled { background: #99d8d1; box-shadow: none; }
+  .note { text-align: center; font-size: 11.5px; color: #94a3b8; margin-top: 14px; line-height: 1.5; }
+</style>
+
+<div class="intro"><b>Key Screen — Signup.</b> Replaces the old demo Login screen. Left: at-rest, first field focused. Right: submit attempted with Trade and Eircode left blank — inline errors under the specific fields, submit stays disabled, no default trade assumed.</div>
+
+<div class="wrap">
+  <div>
+    <div class="frame-label">Signup — at rest</div>
+    <div class="phone">
+      <div class="statusbar"><span>9:41</span><span>Wi-Fi &middot; 82%</span></div>
+      <div class="content">
+        <div class="brand"><div class="brand-mark">T</div><div class="brand-name">TradesLine</div></div>
+        <h1>Sign up</h1>
+        <div class="sub">Set up your account to start tracking jobs, estimates, and invoices.</div>
+
+        <form>
+          <div class="field">
+            <label class="field-label">Your name</label>
+            <input class="input" value="Tom Fahy" />
+          </div>
+
+          <div class="field">
+            <label class="field-label">What's your trade?</label>
+            <div class="trade-group">
+              <div class="trade-chip">Electrician</div>
+              <div class="trade-chip">Plumber</div>
+              <div class="trade-chip">Carpenter</div>
+              <div class="trade-chip selected">General Builder</div>
+            </div>
+          </div>
+
+          <div class="field">
+            <label class="field-label">Address</label>
+            <input class="input" value="14 Millrace Court" placeholder="Street address" />
+          </div>
+          <div class="addr-row">
+            <div class="field"><input class="input" value="Galway" placeholder="Town / county" /></div>
+            <div class="field"><input class="input" value="H91 X2K4" placeholder="Eircode" /></div>
+          </div>
+          <div class="field-hint">We use your address to match you with wholesalers who deliver to you.</div>
+
+          <div class="field">
+            <label class="field-label">Email (optional)</label>
+            <input class="input" placeholder="you@example.com" />
+          </div>
+
+          <div class="btn-primary">Sign up</div>
+          <div class="note">Demo signup &mdash; nothing is sent anywhere.</div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="frame-label">Signup — validation error</div>
+    <div class="phone">
+      <div class="statusbar"><span>9:41</span><span>Wi-Fi &middot; 82%</span></div>
+      <div class="content">
+        <div class="brand"><div class="brand-mark">T</div><div class="brand-name">TradesLine</div></div>
+        <h1>Sign up</h1>
+        <div class="sub">Set up your account to start tracking jobs, estimates, and invoices.</div>
+
+        <form>
+          <div class="field">
+            <label class="field-label">Your name</label>
+            <input class="input" value="Niamh Doyle" />
+          </div>
+
+          <div class="field">
+            <label class="field-label">What's your trade?</label>
+            <div class="trade-group">
+              <div class="trade-chip">Electrician</div>
+              <div class="trade-chip">Plumber</div>
+              <div class="trade-chip">Carpenter</div>
+              <div class="trade-chip">General Builder</div>
+            </div>
+            <div class="err-text">Select your trade to continue.</div>
+          </div>
+
+          <div class="field">
+            <label class="field-label">Address</label>
+            <input class="input" value="22 Riverside Walk" placeholder="Street address" />
+          </div>
+          <div class="addr-row">
+            <div class="field"><input class="input" value="Cork" placeholder="Town / county" /></div>
+            <div class="field"><input class="input err" placeholder="Eircode" /></div>
+          </div>
+          <div class="err-text">Enter your Eircode so we can match nearby wholesalers.</div>
+
+          <div class="field">
+            <label class="field-label">Email (optional)</label>
+            <input class="input" placeholder="you@example.com" />
+          </div>
+
+          <div class="btn-primary disabled">Sign up</div>
+          <div class="note">Demo signup &mdash; nothing is sent anywhere.</div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
