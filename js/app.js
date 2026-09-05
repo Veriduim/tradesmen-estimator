@@ -1,7 +1,8 @@
 /**
  * Render functions, event wiring, and business logic for the job-flow
- * prototype. Pure client-side, no network calls. All persistent state
- * lives in `state` (see state.js) and is saved after every mutation.
+ * prototype. Pure client-side, no network calls. All state lives in
+ * `state` (see state.js) for the current visit only — nothing persists
+ * across a page load.
  */
 
 (function () {
@@ -19,7 +20,7 @@
 
   const VAT_RATE = 0.135;
 
-  let state = load();
+  let state = bootstrapState();
 
   // Transient, non-persisted UI state — resets on reload, which is fine
   // since only job/session data needs to survive a reload.
@@ -31,9 +32,17 @@
     removeBlockedFor: null,
     payBlocked: false,
     qtyNotice: null, // inline feedback when a quantity edit gets clamped to MAX_QTY
+    confirmRemoveMaterialId: null, // set while the remove-material confirm popup is open
   };
 
   let toastTimer = null;
+
+  // Focus management for the confirm popup: the element to return focus
+  // to on close, and whether the popup was already open on the previous
+  // renderConfirmModal() call (so open/close transitions — not every
+  // render() while it's already open — are what move focus).
+  let confirmModalTrigger = null;
+  let confirmModalWasOpen = false;
 
   // ---------------------------------------------------------------------
   // Helpers
@@ -110,10 +119,6 @@
     });
   }
 
-  function persist() {
-    save(state);
-  }
-
   function showToast(message, ok) {
     const toast = document.getElementById('toast');
     toast.textContent = message;
@@ -161,6 +166,8 @@
   // ---------------------------------------------------------------------
 
   function render() {
+    renderConfirmModal();
+
     const header = document.getElementById('app-header');
     const headerUser = document.getElementById('app-header-user');
 
@@ -175,9 +182,8 @@
 
     const job = state.currentJobId ? findJob(state.currentJobId) : null;
     if (state.currentJobId && !job) {
-      // Stale reference (e.g. corrupted/edited storage) — fall back safely.
+      // Stale reference (e.g. the job was just removed) — fall back safely.
       state.currentJobId = null;
-      persist();
     }
 
     if (job) {
@@ -206,6 +212,54 @@
     ['screen-login', 'screen-job-picker', 'screen-job-detail'].forEach(function (sid) {
       document.getElementById(sid).hidden = sid !== id;
     });
+  }
+
+  // Shows/hides the "remove this material?" confirm popup based on
+  // ui.confirmRemoveMaterialId. The material may have vanished (e.g. the
+  // job changed underneath it) — treat that as "nothing to confirm".
+  // Also handles the popup's focus: moves focus in on open, restores it
+  // to whatever triggered the popup on close, and makes the rest of the
+  // page inert while it's open so keyboard/screen-reader users can't
+  // reach content behind the dialog.
+  function renderConfirmModal() {
+    const overlay = document.getElementById('confirm-modal');
+    if (!overlay) return;
+
+    const materialId = ui.confirmRemoveMaterialId;
+    const job = materialId ? findJob(state.currentJobId) : null;
+    const material = job
+      ? job.materials.find(function (m) {
+          return m.id === materialId;
+        })
+      : null;
+
+    const main = document.getElementById('main');
+    const header = document.getElementById('app-header');
+
+    if (!material) {
+      overlay.hidden = true;
+      if (main) main.inert = false;
+      if (header) header.inert = false;
+      if (confirmModalWasOpen && confirmModalTrigger && document.contains(confirmModalTrigger)) {
+        confirmModalTrigger.focus();
+      }
+      confirmModalWasOpen = false;
+      confirmModalTrigger = null;
+      return;
+    }
+
+    document.getElementById('confirm-modal-body').textContent =
+      'Remove "' + material.name + '" from this job? This can’t be undone.';
+    overlay.hidden = false;
+    if (main) main.inert = true;
+    if (header) header.inert = true;
+
+    if (!confirmModalWasOpen) {
+      confirmModalTrigger = document.activeElement;
+      const cancelBtn = document.getElementById('confirm-modal-cancel');
+      if (cancelBtn) cancelBtn.focus();
+    }
+    confirmModalWasOpen = true;
   }
 
   // ---------------------------------------------------------------------
@@ -362,7 +416,6 @@
 
     state.jobs.push(job);
     state.currentJobId = job.id;
-    persist();
     ui.addItemOpen = false;
     ui.addItemQuery = '';
     ui.addItemHighlightIndex = 0;
@@ -955,7 +1008,6 @@
 
     material.qty = next;
     touchJob(job);
-    persist();
     render();
   }
 
@@ -967,14 +1019,17 @@
       render();
       return;
     }
+    const removed = job.materials.find(function (m) {
+      return m.id === materialId;
+    });
     job.materials = job.materials.filter(function (m) {
       return m.id !== materialId;
     });
     delete job.wholesalerChoices[materialId];
     ui.removeBlockedFor = null;
     touchJob(job);
-    persist();
     render();
+    if (removed) showToast('Removed "' + removed.name + '".', true);
   }
 
   function handleAddItemPick(catalogId) {
@@ -1002,7 +1057,6 @@
     ui.addItemQuery = '';
     ui.addItemHighlightIndex = 0;
     touchJob(job);
-    persist();
     render();
   }
 
@@ -1016,7 +1070,6 @@
     const total = materialsCostFinal(job);
     job.status = 'wholesaler-selected';
     touchJob(job);
-    persist();
     render();
     showToast('Payment confirmed — ' + formatEUR(total) + ' charged (mock).', true);
   }
@@ -1027,7 +1080,6 @@
     if (STATUS_ORDER.indexOf(next) === -1) return;
     job.status = next;
     touchJob(job);
-    persist();
     render();
     if (message) showToast(message, true);
   }
@@ -1038,7 +1090,6 @@
     job.wholesalerChoices[materialId] = wholesalerId;
     ui.openWholesalerFor = null;
     touchJob(job);
-    persist();
     render();
   }
 
@@ -1047,7 +1098,6 @@
     if (!job) return;
     job.invoiceIncludesMaterials = checked;
     touchJob(job);
-    persist();
     render();
   }
 
@@ -1062,14 +1112,12 @@
     nameError.hidden = true;
     state.session = { name: trimmedName, email: (email || '').trim(), loginAt: Date.now() };
     state.currentJobId = null;
-    persist();
     render();
   }
 
   function handleLogout() {
     state.session = null;
     state.currentJobId = null;
-    persist();
     render();
   }
 
@@ -1094,7 +1142,6 @@
       ui.addItemQuery = '';
       ui.addItemHighlightIndex = 0;
       ui.qtyNotice = null;
-      persist();
       render();
     });
 
@@ -1112,7 +1159,6 @@
           ui.addItemQuery = '';
           ui.addItemHighlightIndex = 0;
           ui.qtyNotice = null;
-          persist();
           render();
           break;
         case 'create-job':
@@ -1125,8 +1171,21 @@
           handleQtyChange(materialId, 1);
           break;
         case 'remove-material':
-          if (!el.disabled) handleRemoveMaterial(materialId);
+          if (!el.disabled) {
+            ui.confirmRemoveMaterialId = materialId;
+            renderConfirmModal();
+          }
           break;
+        case 'confirm-remove-cancel':
+          ui.confirmRemoveMaterialId = null;
+          renderConfirmModal();
+          break;
+        case 'confirm-remove-confirm': {
+          const idToRemove = ui.confirmRemoveMaterialId;
+          ui.confirmRemoveMaterialId = null;
+          if (idToRemove) handleRemoveMaterial(idToRemove);
+          break;
+        }
         case 'add-item-open': {
           ui.addItemOpen = true;
           ui.addItemQuery = '';
@@ -1226,6 +1285,24 @@
         handleAddItemPick(matchIds[pickIndex]);
       }
     });
+
+    // Dismiss the confirm popup on Escape or a click on the dimmed
+    // backdrop, in addition to its explicit Cancel button.
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && ui.confirmRemoveMaterialId) {
+        ui.confirmRemoveMaterialId = null;
+        renderConfirmModal();
+      }
+    });
+    const confirmOverlay = document.getElementById('confirm-modal');
+    if (confirmOverlay) {
+      confirmOverlay.addEventListener('click', function (e) {
+        if (e.target === confirmOverlay) {
+          ui.confirmRemoveMaterialId = null;
+          renderConfirmModal();
+        }
+      });
+    }
 
     render();
   }

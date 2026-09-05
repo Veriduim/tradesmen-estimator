@@ -79,6 +79,17 @@
 
   <div id="toast" class="toast" hidden></div>
 
+  <div id="confirm-modal" class="confirm-overlay" hidden>
+    <div class="confirm-card" role="alertdialog" aria-modal="true" aria-labelledby="confirm-modal-title" aria-describedby="confirm-modal-body">
+      <div class="confirm-title" id="confirm-modal-title">Remove material?</div>
+      <p class="confirm-body" id="confirm-modal-body"></p>
+      <div class="confirm-actions">
+        <button type="button" class="btn btn-secondary" id="confirm-modal-cancel" data-action="confirm-remove-cancel">Cancel</button>
+        <button type="button" class="btn btn-danger" data-action="confirm-remove-confirm">Remove</button>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <script src="js/data.js"></script>

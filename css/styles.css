@@ -77,6 +77,9 @@ input {
   border-bottom: 1px solid var(--border);
   background: var(--surface);
 }
+.app-header[hidden] {
+  display: none;
+}
 .app-header-name {
   font-size: 13px;
   font-weight: 700;
@@ -242,6 +245,14 @@ main {
 }
 .btn-secondary:hover {
   background: var(--border);
+}
+.btn-danger {
+  background: var(--danger);
+  color: #fff;
+  box-shadow: 0 8px 18px -6px rgba(220, 38, 38, 0.5);
+}
+.btn-danger:hover {
+  background: #b91c1c;
 }
 
 /* ===== Job picker / dashboard ===== */
@@ -525,16 +536,25 @@ main {
   color: var(--ink);
 }
 .mat-remove {
-  background: none;
-  border: none;
-  color: var(--ink-faint);
+  background: var(--danger-soft);
+  border: 1px solid transparent;
+  color: var(--danger);
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
-  padding: 4px 0 0;
+  padding: 5px 10px;
+  border-radius: 8px;
+  margin-top: 6px;
 }
 .mat-remove:hover {
-  color: var(--danger);
+  background: var(--danger);
+  color: #fff;
+}
+.mat-remove:disabled {
+  background: none;
+  border-color: var(--border);
+  color: var(--ink-faint);
+  cursor: not-allowed;
 }
 
 .wholesaler-row {
@@ -963,6 +983,49 @@ main {
 }
 .toast.ok {
   background: var(--ok);
+}
+
+/* ===== Confirm modal ===== */
+.confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 60;
+}
+.confirm-overlay[hidden] {
+  display: none;
+}
+.confirm-card {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  padding: 24px 20px;
+  max-width: 340px;
+  width: 100%;
+  box-shadow: var(--shadow-elevated);
+}
+.confirm-title {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--ink);
+  margin-bottom: 8px;
+}
+.confirm-body {
+  font-size: 13.5px;
+  color: var(--ink-dim);
+  line-height: 1.5;
+  margin: 0 0 20px;
+}
+.confirm-actions {
+  display: flex;
+  gap: 10px;
+}
+.confirm-actions .btn {
+  flex: 1;
+  padding: 11px 14px;
 }
 
 .checkoff-note {
