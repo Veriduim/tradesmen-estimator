@@ -36,6 +36,31 @@
           </label>
           <p class="field-error" id="login-name-error" hidden>Enter your name to continue.</p>
 
+          <div class="field">
+            <span class="field-label">What's your trade?</span>
+            <div class="trade-group" id="login-trade-group">
+              <button type="button" class="trade-chip" data-action="select-trade" data-trade="electrician">Electrician</button>
+              <button type="button" class="trade-chip" data-action="select-trade" data-trade="plumber">Plumber</button>
+              <button type="button" class="trade-chip" data-action="select-trade" data-trade="carpenter">Carpenter</button>
+              <button type="button" class="trade-chip" data-action="select-trade" data-trade="general-builder">General Builder</button>
+            </div>
+            <input type="hidden" id="login-trade" name="trade" value="" />
+          </div>
+          <p class="field-error" id="login-trade-error" hidden>Choose your trade to continue.</p>
+
+          <label class="field">
+            <span class="field-label">Region</span>
+            <select id="login-region" name="region">
+              <option value="">Choose your region</option>
+              <option value="dublin">Dublin</option>
+              <option value="cork">Cork</option>
+              <option value="galway">Galway</option>
+              <option value="limerick">Limerick</option>
+              <option value="other">Other / Rest of Ireland</option>
+            </select>
+          </label>
+          <p class="field-error" id="login-region-error" hidden>Choose your region to continue.</p>
+
           <label class="field">
             <span class="field-label">Business / company name</span>
             <input type="text" id="login-business-name" name="businessName" placeholder="Your business name" autocomplete="organization" />
@@ -114,7 +139,7 @@
       <p class="confirm-body" id="confirm-modal-body"></p>
       <div class="confirm-actions">
         <button type="button" class="btn btn-secondary" id="confirm-modal-cancel" data-action="confirm-remove-cancel">Cancel</button>
-        <button type="button" class="btn btn-danger" data-action="confirm-remove-confirm">Remove</button>
+        <button type="button" class="btn btn-danger" id="confirm-modal-confirm" data-action="confirm-remove-confirm">Remove</button>
       </div>
     </div>
   </div>

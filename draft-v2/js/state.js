@@ -5,7 +5,7 @@
  *
  * State shape:
  * {
- *   session: { name, email, businessName, tradeRegNumber, loginAt } | null,
+ *   session: { name, trade, region, email, businessName, tradeRegNumber, loginAt } | null,
  *   currentJobId: string | null,
  *   viewingProfile: boolean,
  *   jobs: [{
@@ -16,7 +16,10 @@
  *     invoiceIncludesMaterials,
  *     createdAt, updatedAt
  *   }],
- *   profile: { labourRatePerHour: number | null, labourRatePerJob: number | null }
+ *   profile: {
+ *     labourRatePerHour: number | null, labourRatePerJob: number | null,
+ *     pendingReview: boolean
+ *   }
  * }
  */
 
@@ -45,7 +48,7 @@ function defaultState() {
     currentJobId: null,
     viewingProfile: false,
     jobs: [],
-    profile: { labourRatePerHour: null, labourRatePerJob: null },
+    profile: { labourRatePerHour: null, labourRatePerJob: null, pendingReview: false },
   };
 }
 

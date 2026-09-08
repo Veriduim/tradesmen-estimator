@@ -18,6 +18,13 @@
     invoice: 'Invoice',
   };
 
+  const TRADE_LABELS = {
+    electrician: 'Electrician',
+    plumber: 'Plumber',
+    carpenter: 'Carpenter',
+    'general-builder': 'General Builder',
+  };
+
   const VAT_RATE = 0.135;
 
   let state = bootstrapState();
@@ -34,6 +41,9 @@
     viewingEstimate: false, // toggles the materials-needed body to the pre-order customer estimate view
     qtyNotice: null, // inline feedback when a quantity edit gets clamped to MAX_QTY
     confirmRemoveMaterialId: null, // set while the remove-material confirm popup is open
+    confirmCancelJobId: null, // set while the cancel-job confirm popup is open
+    editingProfileDetails: false, // toggles the Profile identity section (name/business/trade reg) into edit mode
+    editingRates: false, // toggles the Profile labour-rate section into edit mode
   };
 
   let toastTimer = null;
@@ -221,29 +231,38 @@
     });
   }
 
-  // Shows/hides the "remove this material?" confirm popup based on
-  // ui.confirmRemoveMaterialId. The material may have vanished (e.g. the
-  // job changed underneath it) — treat that as "nothing to confirm".
-  // Also handles the popup's focus: moves focus in on open, restores it
-  // to whatever triggered the popup on close, and makes the rest of the
-  // page inert while it's open so keyboard/screen-reader users can't
-  // reach content behind the dialog.
+  // Shows/hides the shared confirm popup, driven by whichever of
+  // ui.confirmRemoveMaterialId / ui.confirmCancelJobId is set (only one
+  // at a time in practice — remove-material only opens from a job's own
+  // materials-needed screen, cancel-job only from that job's estimate
+  // view). The target may have vanished (e.g. the job changed underneath
+  // it) — treat that as "nothing to confirm". Also handles the popup's
+  // focus: moves focus in on open, restores it to whatever triggered the
+  // popup on close, and makes the rest of the page inert while it's open
+  // so keyboard/screen-reader users can't reach content behind the dialog.
   function renderConfirmModal() {
     const overlay = document.getElementById('confirm-modal');
     if (!overlay) return;
 
+    const main = document.getElementById('main');
+    const header = document.getElementById('app-header');
+    const titleEl = document.getElementById('confirm-modal-title');
+    const bodyEl = document.getElementById('confirm-modal-body');
+    const cancelBtn = document.getElementById('confirm-modal-cancel');
+    const confirmBtn = document.getElementById('confirm-modal-confirm');
+
     const materialId = ui.confirmRemoveMaterialId;
-    const job = materialId ? findJob(state.currentJobId) : null;
-    const material = job
-      ? job.materials.find(function (m) {
+    const materialJob = materialId ? findJob(state.currentJobId) : null;
+    const material = materialJob
+      ? materialJob.materials.find(function (m) {
           return m.id === materialId;
         })
       : null;
 
-    const main = document.getElementById('main');
-    const header = document.getElementById('app-header');
+    const cancelJobId = ui.confirmCancelJobId;
+    const jobToCancel = cancelJobId ? findJob(cancelJobId) : null;
 
-    if (!material) {
+    if (!material && !jobToCancel) {
       overlay.hidden = true;
       if (main) main.inert = false;
       if (header) header.inert = false;
@@ -255,15 +274,33 @@
       return;
     }
 
-    document.getElementById('confirm-modal-body').textContent =
-      'Remove "' + material.name + '" from this job? This can’t be undone.';
+    if (material) {
+      titleEl.textContent = 'Remove material?';
+      bodyEl.textContent = 'Remove "' + material.name + '" from this job? This can’t be undone.';
+      cancelBtn.textContent = 'Cancel';
+      cancelBtn.setAttribute('data-action', 'confirm-remove-cancel');
+      confirmBtn.textContent = 'Remove';
+      confirmBtn.setAttribute('data-action', 'confirm-remove-confirm');
+    } else {
+      titleEl.textContent = 'Cancel job?';
+      bodyEl.textContent =
+        'Cancel "' +
+        jobToCancel.jobTypeLabel +
+        '" at ' +
+        jobToCancel.address +
+        '? Nothing has been ordered yet — this can’t be undone.';
+      cancelBtn.textContent = 'Keep Job';
+      cancelBtn.setAttribute('data-action', 'confirm-cancel-job-dismiss');
+      confirmBtn.textContent = 'Cancel Job';
+      confirmBtn.setAttribute('data-action', 'confirm-cancel-job-confirm');
+    }
+
     overlay.hidden = false;
     if (main) main.inert = true;
     if (header) header.inert = true;
 
     if (!confirmModalWasOpen) {
       confirmModalTrigger = document.activeElement;
-      const cancelBtn = document.getElementById('confirm-modal-cancel');
       if (cancelBtn) cancelBtn.focus();
     }
     confirmModalWasOpen = true;
@@ -364,7 +401,18 @@
 
     jobsWrap.innerHTML = jobSectionHTML('Active', activeJobs) + jobSectionHTML('Completed', completedJobs);
 
-    presetsWrap.innerHTML = JOB_PRESETS.map(function (preset) {
+    const tradePresets = JOB_PRESETS.filter(function (preset) {
+      return preset.trade === state.session.trade;
+    });
+
+    if (!tradePresets.length) {
+      const tradeLabel = TRADE_LABELS[state.session.trade] || state.session.trade;
+      presetsWrap.innerHTML =
+        '<p class="empty-state">No presets yet for ' + escapeHtml(tradeLabel) + ' — check back soon.</p>';
+      return;
+    }
+
+    presetsWrap.innerHTML = tradePresets.map(function (preset) {
       return (
         '<button type="button" class="preset-card" data-action="create-job" data-preset-id="' +
         preset.id +
@@ -410,6 +458,7 @@
       id: generateId('job'),
       jobType: preset.id,
       jobTypeLabel: preset.label,
+      trade: preset.trade,
       address: preset.address,
       propertySize: preset.propertySize,
       labourCost: preset.labourCost,
@@ -436,20 +485,173 @@
   // Profile screen
   // ---------------------------------------------------------------------
 
+  // The region-appropriate preset for the signed-in user's trade, or null
+  // when no preset catalog exists yet for that trade (Carpenter/General
+  // Builder) — same "thin catalog, no fallback to another trade" rule as
+  // JOB_PRESETS filtering.
+  function ratePreset(field) {
+    const byTrade = LABOUR_RATE_PRESETS[state.session.trade];
+    const preset = byTrade ? byTrade[state.session.region] : null;
+    return preset ? preset[field] : null;
+  }
+
+  function identitySectionHTML() {
+    const session = state.session;
+    if (ui.editingProfileDetails) {
+      return (
+        '<div class="picker-heading">Your Details</div>' +
+        '<label class="field">' +
+        '<span class="field-label">Name</span>' +
+        '<input type="text" id="profile-name" value="' +
+        escapeHtml(session.name) +
+        '" /></label>' +
+        '<p class="field-error" id="profile-name-error" hidden>Enter your name to continue.</p>' +
+        '<label class="field">' +
+        '<span class="field-label">Business / company name</span>' +
+        '<input type="text" id="profile-business-name" value="' +
+        escapeHtml(session.businessName) +
+        '" /></label>' +
+        '<p class="field-error" id="profile-business-name-error" hidden>Enter your business name to continue.</p>' +
+        '<label class="field">' +
+        '<span class="field-label">Trade registration number</span>' +
+        '<input type="text" id="profile-trade-reg" value="' +
+        escapeHtml(session.tradeRegNumber) +
+        '" /></label>' +
+        '<p class="field-error" id="profile-trade-reg-error" hidden>Enter your trade registration number to continue.</p>' +
+        '<div class="action-bar">' +
+        '<button type="button" class="btn btn-secondary" data-action="cancel-edit-details">Cancel</button>' +
+        '<button type="button" class="btn btn-primary" data-action="save-profile-details">Save</button>' +
+        '</div>'
+      );
+    }
+
+    const pendingBanner = state.profile.pendingReview
+      ? '<p class="inline-error">Pending review — changes to your name, business, or trade registration number are compared against your business details to confirm you’re a registered tradesperson before they’re considered verified.</p>'
+      : '';
+
+    return (
+      '<div class="picker-heading">Your Details</div>' +
+      '<div class="line-item"><span class="line-item-name">Name</span><span class="line-item-value">' +
+      escapeHtml(session.name) +
+      '</span></div>' +
+      '<div class="line-item"><span class="line-item-name">Business</span><span class="line-item-value">' +
+      escapeHtml(session.businessName) +
+      '</span></div>' +
+      '<div class="line-item"><span class="line-item-name">Trade reg. number</span><span class="line-item-value">' +
+      escapeHtml(session.tradeRegNumber) +
+      '</span></div>' +
+      pendingBanner +
+      '<button type="button" class="btn btn-secondary" data-action="edit-profile-details">Edit details</button>'
+    );
+  }
+
+  function rateSectionHTML() {
+    const profile = state.profile;
+    if (ui.editingRates) {
+      return (
+        '<div class="picker-heading">Your Labour Rates</div>' +
+        '<label class="field">' +
+        '<span class="field-label">Rate per hour (EUR)</span>' +
+        '<input type="number" id="profile-rate-hour" min="0" step="0.01" placeholder="e.g. 45.00" value="' +
+        (profile.labourRatePerHour === null ? (ratePreset('perHour') === null ? '' : ratePreset('perHour')) : profile.labourRatePerHour) +
+        '" /></label>' +
+        '<label class="field">' +
+        '<span class="field-label">Rate per job (EUR)</span>' +
+        '<input type="number" id="profile-rate-job" min="0" step="0.01" placeholder="e.g. 350.00" value="' +
+        (profile.labourRatePerJob === null ? (ratePreset('perJob') === null ? '' : ratePreset('perJob')) : profile.labourRatePerJob) +
+        '" /></label>' +
+        '<button type="button" class="btn btn-secondary" data-action="done-edit-rates">Done</button>'
+      );
+    }
+
+    const hourPreset = ratePreset('perHour');
+    const jobPreset = ratePreset('perJob');
+    const hourLine =
+      profile.labourRatePerHour !== null
+        ? 'Rate per hour: ' + formatEUR(profile.labourRatePerHour) + ' (your rate)'
+        : hourPreset !== null
+        ? 'Rate per hour: ' + formatEUR(hourPreset) + ' (' + TRADE_LABELS[state.session.trade] + ' preset)'
+        : 'Rate per hour: not set';
+    const jobLine =
+      profile.labourRatePerJob !== null
+        ? 'Rate per job: ' + formatEUR(profile.labourRatePerJob) + ' (your rate)'
+        : jobPreset !== null
+        ? 'Rate per job: ' + formatEUR(jobPreset) + ' (' + TRADE_LABELS[state.session.trade] + ' preset)'
+        : 'Rate per job: not set';
+
+    return (
+      '<div class="picker-heading">Your Labour Rates</div>' +
+      '<div class="line-item"><span class="line-item-name">' +
+      hourLine +
+      '</span></div>' +
+      '<div class="line-item"><span class="line-item-name">' +
+      jobLine +
+      '</span></div>' +
+      '<button type="button" class="btn btn-secondary" data-action="edit-rates">Edit</button>'
+    );
+  }
+
   function renderProfile() {
     const body = document.getElementById('profile-body');
-    const profile = state.profile;
+
+    const jobs = state.jobs.slice().sort(function (a, b) {
+      return (b.updatedAt || 0) - (a.updatedAt || 0);
+    });
+    const activeJobs = jobs.filter(function (j) {
+      return j.status !== 'invoice';
+    });
+    const completedJobs = jobs.filter(function (j) {
+      return j.status === 'invoice';
+    });
+    const jobsHTML = jobs.length
+      ? jobSectionHTML('Active', activeJobs) + jobSectionHTML('Completed', completedJobs)
+      : '<p class="empty-state">No jobs yet.</p>';
+
     body.innerHTML =
-      '<label class="field">' +
-      '<span class="field-label">Rate per hour (EUR)</span>' +
-      '<input type="number" id="profile-rate-hour" min="0" step="0.01" placeholder="e.g. 45.00" value="' +
-      (profile.labourRatePerHour === null ? '' : profile.labourRatePerHour) +
-      '" /></label>' +
-      '<label class="field">' +
-      '<span class="field-label">Rate per job (EUR)</span>' +
-      '<input type="number" id="profile-rate-job" min="0" step="0.01" placeholder="e.g. 350.00" value="' +
-      (profile.labourRatePerJob === null ? '' : profile.labourRatePerJob) +
-      '" /></label>';
+      identitySectionHTML() +
+      rateSectionHTML() +
+      '<div class="picker-heading">Your Jobs</div>' +
+      '<div class="job-list">' +
+      jobsHTML +
+      '</div>';
+  }
+
+  function handleSaveProfileDetails(name, businessName, tradeRegNumber) {
+    const nameError = document.getElementById('profile-name-error');
+    const businessNameError = document.getElementById('profile-business-name-error');
+    const tradeRegError = document.getElementById('profile-trade-reg-error');
+
+    const trimmedName = (name || '').trim();
+    const trimmedBusinessName = (businessName || '').trim();
+    const trimmedTradeReg = (tradeRegNumber || '').trim();
+
+    nameError.hidden = true;
+    businessNameError.hidden = true;
+    tradeRegError.hidden = true;
+
+    if (!trimmedName) {
+      nameError.hidden = false;
+      document.getElementById('profile-name').focus();
+      return;
+    }
+    if (!trimmedBusinessName) {
+      businessNameError.hidden = false;
+      document.getElementById('profile-business-name').focus();
+      return;
+    }
+    if (!trimmedTradeReg) {
+      tradeRegError.hidden = false;
+      document.getElementById('profile-trade-reg').focus();
+      return;
+    }
+
+    state.session.name = trimmedName;
+    state.session.businessName = trimmedBusinessName;
+    state.session.tradeRegNumber = trimmedTradeReg;
+    state.profile.pendingReview = true;
+    ui.editingProfileDetails = false;
+    render();
+    showToast('Details updated — pending review.', true);
   }
 
   // Shared by both profile rate fields. Empty clears the rate back to
@@ -693,6 +895,7 @@
     });
 
     const ids = Object.keys(MATERIAL_CATALOG).filter(function (id) {
+      if (MATERIAL_CATALOG[id].trade !== job.trade) return false;
       if (alreadyAddedCatalogIds[id]) return false;
       if (!query) return true;
       return MATERIAL_CATALOG[id].name.toLowerCase().indexOf(query) !== -1;
@@ -1039,8 +1242,17 @@
   // — different inputs and no materials-toggle, so keeping it separate
   // matches the existing estimateJobTotal/materialsCostFinal split.
   function estimateInvoiceHTML(job) {
+    // Explicit profile override wins; otherwise the trade+region preset
+    // (a real, region-aware default); otherwise the preset job's own
+    // flat labourCost (the only option for a trade with no rate preset
+    // yet, e.g. Carpenter/General Builder).
+    const presetPerJob = ratePreset('perJob');
     const labourCost =
-      state.profile.labourRatePerJob !== null ? state.profile.labourRatePerJob : job.labourCost;
+      state.profile.labourRatePerJob !== null
+        ? state.profile.labourRatePerJob
+        : presetPerJob !== null
+        ? presetPerJob
+        : job.labourCost;
     const materialsCost = estimateJobTotal(job);
     const subtotal = labourCost + materialsCost;
     const vat = subtotal * VAT_RATE;
@@ -1106,6 +1318,11 @@
       '</span></div>' +
       '</div>' +
       '<div class="invoice-footer">This is an estimate to give the customer an idea of cost — not a final invoice. Actual costs may vary once materials are ordered.</div>' +
+      '</div>' +
+      '<div class="action-bar">' +
+      '<button type="button" class="btn btn-danger btn-block" data-action="cancel-job" data-job-id="' +
+      job.id +
+      '">Cancel job — customer declined</button>' +
       '</div>'
     );
   }
@@ -1196,6 +1413,24 @@
     render();
   }
 
+  // Cancelling only makes sense before any wholesaler is chosen or paid
+  // (the customer-estimate view this is reached from only shows on the
+  // materials-needed stage) — so this is a full removal, not a
+  // 'cancelled' status, matching a job that never actually happened.
+  function handleCancelJob(jobId) {
+    const job = findJob(jobId);
+    if (!job) return;
+    state.jobs = state.jobs.filter(function (j) {
+      return j.id !== jobId;
+    });
+    if (state.currentJobId === jobId) {
+      state.currentJobId = null;
+      ui.viewingEstimate = false;
+    }
+    render();
+    showToast('Cancelled "' + job.jobTypeLabel + '".', true);
+  }
+
   function handlePay() {
     const job = findJob(state.currentJobId);
     if (!job) return;
@@ -1237,13 +1472,17 @@
     render();
   }
 
-  function handleLogin(name, email, businessName, tradeRegNumber, attested) {
+  function handleLogin(name, trade, region, email, businessName, tradeRegNumber, attested) {
     const nameError = document.getElementById('login-name-error');
+    const tradeError = document.getElementById('login-trade-error');
+    const regionError = document.getElementById('login-region-error');
     const businessNameError = document.getElementById('login-business-name-error');
     const tradeRegError = document.getElementById('login-trade-reg-error');
     const attestError = document.getElementById('login-attest-error');
 
     const trimmedName = (name || '').trim();
+    const trimmedTrade = (trade || '').trim();
+    const trimmedRegion = (region || '').trim();
     const trimmedBusinessName = (businessName || '').trim();
     const trimmedTradeReg = (tradeRegNumber || '').trim();
 
@@ -1251,6 +1490,8 @@
     // (for a field the user already fixed) can't survive an early return
     // triggered by a different, earlier field failing this time.
     nameError.hidden = true;
+    tradeError.hidden = true;
+    regionError.hidden = true;
     businessNameError.hidden = true;
     tradeRegError.hidden = true;
     attestError.hidden = true;
@@ -1261,6 +1502,20 @@
       return;
     }
     nameError.hidden = true;
+
+    if (!trimmedTrade) {
+      tradeError.hidden = false;
+      document.getElementById('login-trade-group').querySelector('.trade-chip').focus();
+      return;
+    }
+    tradeError.hidden = true;
+
+    if (!trimmedRegion) {
+      regionError.hidden = false;
+      document.getElementById('login-region').focus();
+      return;
+    }
+    regionError.hidden = true;
 
     if (!trimmedBusinessName) {
       businessNameError.hidden = false;
@@ -1285,6 +1540,8 @@
 
     state.session = {
       name: trimmedName,
+      trade: trimmedTrade,
+      region: trimmedRegion,
       email: (email || '').trim(),
       businessName: trimmedBusinessName,
       tradeRegNumber: trimmedTradeReg,
@@ -1309,6 +1566,8 @@
       e.preventDefault();
       handleLogin(
         document.getElementById('login-name').value,
+        document.getElementById('login-trade').value,
+        document.getElementById('login-region').value,
         document.getElementById('login-email').value,
         document.getElementById('login-business-name').value,
         document.getElementById('login-trade-reg').value,
@@ -1337,12 +1596,15 @@
       switch (action) {
         case 'open-job':
           state.currentJobId = el.getAttribute('data-job-id');
+          state.viewingProfile = false;
           ui.openWholesalerFor = null;
           ui.addItemOpen = false;
           ui.addItemQuery = '';
           ui.addItemHighlightIndex = 0;
           ui.qtyNotice = null;
           ui.viewingEstimate = false;
+          ui.editingProfileDetails = false;
+          ui.editingRates = false;
           render();
           break;
         case 'create-job':
@@ -1368,6 +1630,20 @@
           const idToRemove = ui.confirmRemoveMaterialId;
           ui.confirmRemoveMaterialId = null;
           if (idToRemove) handleRemoveMaterial(idToRemove);
+          break;
+        }
+        case 'cancel-job':
+          ui.confirmCancelJobId = el.getAttribute('data-job-id');
+          renderConfirmModal();
+          break;
+        case 'confirm-cancel-job-dismiss':
+          ui.confirmCancelJobId = null;
+          renderConfirmModal();
+          break;
+        case 'confirm-cancel-job-confirm': {
+          const idToCancel = ui.confirmCancelJobId;
+          ui.confirmCancelJobId = null;
+          if (idToCancel) handleCancelJob(idToCancel);
           break;
         }
         case 'add-item-open': {
@@ -1403,9 +1679,41 @@
         case 'advance-status':
           handleAdvance(el.getAttribute('data-next'), el.getAttribute('data-message'));
           break;
+        case 'select-trade': {
+          const trade = el.getAttribute('data-trade');
+          document.getElementById('login-trade').value = trade;
+          document.querySelectorAll('#login-trade-group .trade-chip').forEach(function (chip) {
+            chip.classList.toggle('selected', chip === el);
+          });
+          document.getElementById('login-trade-error').hidden = true;
+          break;
+        }
         case 'go-profile':
           state.viewingProfile = true;
           render();
+          break;
+        case 'edit-profile-details':
+          ui.editingProfileDetails = true;
+          renderProfile();
+          break;
+        case 'cancel-edit-details':
+          ui.editingProfileDetails = false;
+          renderProfile();
+          break;
+        case 'save-profile-details':
+          handleSaveProfileDetails(
+            document.getElementById('profile-name').value,
+            document.getElementById('profile-business-name').value,
+            document.getElementById('profile-trade-reg').value
+          );
+          break;
+        case 'edit-rates':
+          ui.editingRates = true;
+          renderProfile();
+          break;
+        case 'done-edit-rates':
+          ui.editingRates = false;
+          renderProfile();
           break;
         case 'show-estimate':
           ui.viewingEstimate = true;
@@ -1417,6 +1725,8 @@
           break;
         case 'leave-profile':
           state.viewingProfile = false;
+          ui.editingProfileDetails = false;
+          ui.editingRates = false;
           render();
           break;
         default:
