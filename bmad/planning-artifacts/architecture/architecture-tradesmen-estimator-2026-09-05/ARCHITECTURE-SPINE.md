@@ -3,11 +3,11 @@ name: TradesLine
 type: architecture-spine
 purpose: build-substrate
 altitude: feature
-paradigm: layered (Next.js App Router)
-scope: TradesLine (tradesmen-estimator) second-draft architecture — stack for moving off the static-HTML/JS demo, wholesaler material/pricing/delivery data sourcing, and wholesaler communication scope.
+paradigm: static HTML/CSS/vanilla JS (draft stage); layered Next.js App Router held in reserve for the second phase
+scope: TradesLine (tradesmen-estimator) draft-stage architecture — reverts the build to the static-HTML/JS demo until the draft is validated; the second-draft Next.js/Postgres stack (wholesaler material/pricing/delivery data sourcing, wholesaler communication) is paused, not discarded.
 status: final
 created: 2026-09-05
-updated: 2026-09-05
+updated: 2026-09-08
 binds: []
 sources:
   - bmad/planning-artifacts/briefs/brief-tradesmen-estimator-2026-08-24/brief.md
@@ -20,7 +20,19 @@ companions: []
 
 ## Design Paradigm
 
-Layered, on Next.js App Router:
+**Draft stage (current, binding): static HTML/CSS/vanilla JS, no framework, no build step, no server, no database.**
+
+```mermaid
+graph TD
+    HTML["index.html"] --> CSS["css/styles.css"]
+    HTML --> APP["js/app.js — rendering + event handling"]
+    APP --> STATE["js/state.js — in-memory app state"]
+    APP --> DATA["js/data.js — mocked materials/wholesaler/preset catalog"]
+```
+
+Product/UX iteration happens in sibling draft folders at repo root — `draft-v1/` (the original prototype, kept as a rollback target) and `draft-v2/` (active development: new features land here first) — each a self-contained copy of `index.html`/`css/`/`js/`. The repo root also carries its own copy of the currently-promoted draft's `index.html`/`css/`/`js/`, since GitHub Pages serves from repo root and can't point at a subfolder directly — as of 2026-09-08 that's `draft-v2` (signup verification, profile labour rates, pre-order estimate invoice). Promoting a later draft means re-copying that draft's files over root's. No new feature may be built against the Next.js stack below until the user judges the draft validated — see Deferred.
+
+**Second phase (paused, not discarded): layered Next.js App Router**, resumed only once the draft is validated:
 
 ```mermaid
 graph TD
@@ -30,53 +42,59 @@ graph TD
     REPOS --> DB[("Postgres")]
 ```
 
-UI components never import Prisma directly; they call Server Actions, which call services, which call repositories.
+UI components never import Prisma directly; they call Server Actions, which call services, which call repositories. This paradigm and AD-1..AD-7 below are parked under Deferred. **The prior scaffold/implementation of this phase (`future-nextjs-build/` — signup slice, Prisma schema, local Postgres) was deleted entirely on 2026-09-08** at the user's request, not merely paused; resuming this phase later means re-scaffolding from this spine's AD-1..AD-7, not resuming saved code.
 
 ## Invariants & Rules
 
-### AD-1 — Trade-scoped data access
+No invariant binds the draft-stage paradigm yet — a single static site with one `js/state.js` module has no independently-built units that could diverge. AD-1 through AD-7 below govern the paused second-phase stack; they are inactive while the draft-stage paradigm is in effect (see Deferred) and stay in place, unchanged, for whoever resumes that phase.
+
+### AD-1 — Trade-scoped data access _(second phase — paused)_
 
 - **Binds:** `JobPreset`, `Material`, `WholesalerBranch`/`WholesalerCatalogItem` queries
 - **Prevents:** a query built for one trade silently leaking another trade's presets/materials/wholesalers to a user
 - **Rule:** `JobPreset` carries an explicit `trade` column. Every preset/material/wholesaler read goes through a service function that takes the signed-in user's `trade` and filters by it; no repository method returns unscoped catalog rows to a UI path.
 
-### AD-2 — Delivery coverage is routing-key membership, never geo distance
+### AD-2 — Delivery coverage is routing-key membership, never geo distance _(second phase — paused)_
 
 - **Binds:** `WholesalerBranch`, any "does this wholesaler deliver to me" check
 - **Prevents:** an independently-built feature adding geocoding/lat-lng/radius math that EXPERIENCE.md explicitly deferred, or hand-rolling a second coverage representation or a second normalization rule
 - **Rule:** a `WholesalerBranch` declares coverage only as a list of Eircode routing keys (`servedRoutingKeys: string[]`, e.g. `"D01"`, `"T12"`). A user's routing key is the first 3 characters of the Eircode captured at signup, stored and compared uppercase with whitespace stripped, normalized at exactly one point (a shared util, not re-implemented per query site). Coverage is `userRoutingKey IN branch.servedRoutingKeys` — no other coverage computation is valid.
 
-### AD-3 — Catalog data carries an explicit source, whatever populates it
+### AD-3 — Catalog data carries an explicit source, whatever populates it _(second phase — paused)_
 
 - **Binds:** `WholesalerBranch`, `WholesalerCatalogItem`
 - **Prevents:** a future scraper or API integration writing into the catalog tables through a different shape than the manually-curated rows, splitting "real" data from "seed" data
 - **Rule:** every `WholesalerBranch` and `WholesalerCatalogItem` row carries `source: 'manual' | 'api' | 'scrape'`. All catalog writes — manual admin entry today, any future feed — go through the same repository method and table shape; only `source` distinguishes provenance.
 
-### AD-4 — Wholesaler messages are an append-only log, not a send
+### AD-4 — Wholesaler messages are an append-only log, not a send _(second phase — paused)_
 
 - **Binds:** `WholesalerMessage`
 - **Prevents:** a builder wiring an actual outbound email/SMTP call into what this draft scopes as a manual note
 - **Rule:** creating a `WholesalerMessage` only ever inserts a row (`jobId`, `wholesalerBranchId`, `authorUserId`, `body`, `createdAt`). No code path sends email, polls an inbox, or expects a reply to arrive automatically.
 
-### AD-5 — Money is integer cents, computed server-side only
+### AD-5 — Money is integer cents, computed server-side only _(second phase — paused)_
 
 - **Binds:** `JobMaterial.unitPrice`, `Invoice` totals/VAT
 - **Prevents:** float rounding drift between the materials-cost-toggle path and the invoice-total path when built independently
 - **Rule:** all money fields are integer cents (EUR). VAT (13.5%) and totals are computed once, in the service layer, never re-derived client-side or duplicated in a second code path.
 
-### AD-6 — No password, but a real session
+### AD-6 — No password, but a real session _(second phase — paused)_
 
 - **Binds:** signup, all authenticated reads/writes
 - **Prevents:** either reintroducing a full auth provider (NextAuth/Clerk) for what EXPERIENCE.md scopes as a no-password demo signup, or regressing to the just-removed client-only/no-persistence state
 - **Rule:** signup issues a signed httpOnly session cookie referencing the new `User.id`. No password field exists. Session resolution happens through one shared helper (`lib/server/session.ts`) that every Server Action calls to get the current user — no Server Action reads or trusts the cookie directly, and there is no anonymous write path.
 
-### AD-7 — Wholesaler price is snapshotted once, at selection
+### AD-7 — Wholesaler price is snapshotted once, at selection _(second phase — paused)_
 
 - **Binds:** `JobMaterial.unitPrice`, `WholesalerCatalogItem.unitPrice`, `Invoice`
 - **Prevents:** one feature snapshotting price at wholesaler-selection while another re-derives it live at invoice time, producing silently divergent invoice totals for the same job
 - **Rule:** `JobMaterial` carries a mandatory `wholesalerCatalogItemId` FK, set once when a wholesaler is selected; `JobMaterial.unitPrice` is copied from `WholesalerCatalogItem.unitPrice` at that moment and is immutable afterward. Invoice generation always sums stored `JobMaterial.unitPrice` snapshots — it never re-reads `WholesalerCatalogItem` for pricing.
 
 ## Consistency Conventions
+
+**Draft stage:** ratifies the existing static prototype's own conventions (`js/state.js`'s `STATUS_ORDER`, `js/data.js`'s catalog shape) — unchanged, not restated here; the code owns them.
+
+**Second phase — paused:**
 
 | Concern | Convention |
 | --- | --- |
@@ -86,6 +104,15 @@ UI components never import Prisma directly; they call Server Actions, which call
 
 ## Stack
 
+**Draft stage (current, binding):**
+
+| Name | Version |
+| --- | --- |
+| HTML5 / CSS3 / vanilla JS (ES modules) | no framework, no build step, no package manager |
+| Hosting | GitHub Pages (`Veriduim/tradesmen-estimator`, auto-deploys on push to `master`), live at https://veriduim.github.io/tradesmen-estimator/ |
+
+**Second phase — paused (unchanged from the prior draft):**
+
 | Name | Version |
 | --- | --- |
 | Next.js (App Router, TypeScript) | 16.3.4 |
@@ -94,6 +121,21 @@ UI components never import Prisma directly; they call Server Actions, which call
 | Hosting | Vercel — single environment for now, no staging/prod split |
 
 ## Structural Seed
+
+**Draft stage (current):**
+
+```text
+draft-v1/            # original prototype -- rollback target, untouched
+  index.html
+  css/styles.css
+  js/{app,state,data}.js
+draft-v2/            # active development -- new features land here first
+  index.html
+  css/styles.css
+  js/{app,state,data}.js
+```
+
+**Second phase — paused (design only; prior code deleted 2026-09-08, see Design Paradigm):**
 
 ```text
 app/
@@ -108,6 +150,8 @@ lib/
 prisma/
   schema.prisma
 ```
+
+Core entities below are **second-phase — paused** (no DB exists in the draft-stage paradigm):
 
 ```mermaid
 erDiagram
@@ -141,6 +185,8 @@ Core entity fields (seed-level, code owns the rest):
 
 ## Capability → Architecture Map
 
+**Second phase — paused:**
+
 | Capability / Area | Lives in | Governed by |
 | --- | --- | --- |
 | Signup (trade + address + Eircode) | `app/signup/`, `User` model, `session.ts` | AD-6 |
@@ -152,6 +198,7 @@ Core entity fields (seed-level, code owns the rest):
 
 ## Deferred
 
+- **The entire second-phase Next.js/Prisma/Postgres stack (AD-1..AD-7, its Stack row, ERD, and Capability Map above)** — paused as design, as of 2026-09-08. The draft stage builds and iterates in plain static HTML/CSS/vanilla JS only (see Design Paradigm), reversing the 2026-09-05 decision to move off it. Unlike the initial pause, the already-built signup slice's code (`app/`, `lib/`, `prisma/`, local Postgres) was fully deleted at the user's request on 2026-09-08 — only the design (this spine) survives; resuming means re-implementing from AD-1..AD-7, not restoring saved code. Exit criteria for when to resume — what makes the draft "very good" — is not yet defined; pin this down with the user before restarting the second phase.
 - **Real wholesaler API/EDI integration** — no business relationship with a wholesaler exists yet; `source` field on catalog tables (AD-3) leaves the slot open without a future schema change.
 - **Scraping wholesaler sites** — rejected: fragile and likely against most wholesalers' terms of service.
 - **Geocoding/lat-lng delivery matching** — routing-key membership (AD-2) covers this need at far lower cost; revisit only if routing-key granularity proves too coarse in practice.

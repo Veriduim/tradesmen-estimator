@@ -31,7 +31,6 @@
     addItemHighlightIndex: 0, // keyboard-roving-highlight index into the current filtered results
     removeBlockedFor: null,
     payBlocked: false,
-    viewingEstimate: false, // toggles the materials-needed body to the pre-order customer estimate view
     qtyNotice: null, // inline feedback when a quantity edit gets clamped to MAX_QTY
     confirmRemoveMaterialId: null, // set while the remove-material confirm popup is open
   };
@@ -181,12 +180,6 @@
     header.hidden = false;
     headerUser.textContent = state.session.name;
 
-    if (state.viewingProfile) {
-      showScreen('screen-profile');
-      renderProfile();
-      return;
-    }
-
     const job = state.currentJobId ? findJob(state.currentJobId) : null;
     if (state.currentJobId && !job) {
       // Stale reference (e.g. the job was just removed) — fall back safely.
@@ -216,7 +209,7 @@
   }
 
   function showScreen(id) {
-    ['screen-login', 'screen-job-picker', 'screen-job-detail', 'screen-profile'].forEach(function (sid) {
+    ['screen-login', 'screen-job-picker', 'screen-job-detail'].forEach(function (sid) {
       document.getElementById(sid).hidden = sid !== id;
     });
   }
@@ -428,55 +421,7 @@
     ui.addItemHighlightIndex = 0;
     ui.openWholesalerFor = null;
     ui.qtyNotice = null;
-    ui.viewingEstimate = false;
     render();
-  }
-
-  // ---------------------------------------------------------------------
-  // Profile screen
-  // ---------------------------------------------------------------------
-
-  function renderProfile() {
-    const body = document.getElementById('profile-body');
-    const profile = state.profile;
-    body.innerHTML =
-      '<label class="field">' +
-      '<span class="field-label">Rate per hour (EUR)</span>' +
-      '<input type="number" id="profile-rate-hour" min="0" step="0.01" placeholder="e.g. 45.00" value="' +
-      (profile.labourRatePerHour === null ? '' : profile.labourRatePerHour) +
-      '" /></label>' +
-      '<label class="field">' +
-      '<span class="field-label">Rate per job (EUR)</span>' +
-      '<input type="number" id="profile-rate-job" min="0" step="0.01" placeholder="e.g. 350.00" value="' +
-      (profile.labourRatePerJob === null ? '' : profile.labourRatePerJob) +
-      '" /></label>';
-  }
-
-  // Shared by both profile rate fields. Empty clears the rate back to
-  // null; a non-numeric or negative entry is discarded and the field is
-  // reverted to its last valid value. Deliberately does NOT call the full
-  // render() on a successful save: profile-body sits inline with two
-  // sibling fields, and a full render() would replace both inputs' DOM
-  // nodes via innerHTML — destroying whichever field the user tabs/clicks
-  // into next mid-interaction (observed live: typing into the second
-  // field after the first field's change/blur fired lost every
-  // keystroke, because render() from the first field's handler recreated
-  // the second field's node out from under the user). The input already
-  // visually shows what was typed, so no re-render is needed to save it;
-  // only the revert path (invalid input) needs to force the display back
-  // to the last valid value.
-  function handleProfileRateChange(field, rawValue) {
-    const trimmed = (rawValue || '').trim();
-    if (trimmed === '') {
-      state.profile[field] = null;
-      return;
-    }
-    const next = parseFloat(trimmed);
-    if (!Number.isFinite(next) || next < 0) {
-      renderProfile();
-      return;
-    }
-    state.profile[field] = next;
   }
 
   // ---------------------------------------------------------------------
@@ -492,7 +437,7 @@
     const body = document.getElementById('job-detail-body');
     switch (job.status) {
       case 'materials-needed':
-        body.innerHTML = ui.viewingEstimate ? estimateInvoiceHTML(job) : materialsNeededHTML(job);
+        body.innerHTML = materialsNeededHTML(job);
         break;
       case 'wholesaler-selected':
         body.innerHTML = wholesalerSelectedHTML(job);
@@ -672,7 +617,6 @@
       '</span>' +
       '</div>' +
       '<div class="action-bar">' +
-      '<button type="button" class="btn btn-secondary btn-block" data-action="show-estimate">Show customer estimate</button>' +
       '<button type="button" class="btn btn-primary btn-block" data-action="pay"' +
       (canPay ? '' : ' disabled') +
       '>Pay ' +
@@ -1030,86 +974,6 @@
     );
   }
 
-  // Pre-order customer estimate, shown from the Materials Needed stage
-  // before any wholesaler is chosen or paid. Deliberately a separate
-  // function from invoiceHTML rather than a shared one with branches:
-  // it prices materials at cheapest-available (estimateLineTotal, not
-  // chosenOption-based materialsCostFinal) and pulls labour from the
-  // tradesperson's profile rather than invoiceBreakdown's job.labourCost
-  // — different inputs and no materials-toggle, so keeping it separate
-  // matches the existing estimateJobTotal/materialsCostFinal split.
-  function estimateInvoiceHTML(job) {
-    const labourCost =
-      state.profile.labourRatePerJob !== null ? state.profile.labourRatePerJob : job.labourCost;
-    const materialsCost = estimateJobTotal(job);
-    const subtotal = labourCost + materialsCost;
-    const vat = subtotal * VAT_RATE;
-    const total = subtotal + vat;
-
-    const materialLines = job.materials
-      .map(function (m) {
-        return (
-          '<div class="line-item">' +
-          '<span class="line-item-name">' +
-          escapeHtml(m.name) +
-          ' <span class="line-item-qty">(' +
-          m.qty +
-          ' ' +
-          escapeHtml(m.unit) +
-          ')</span></span>' +
-          '<span class="line-item-value">' +
-          formatEUR(estimateLineTotal(job, m)) +
-          '</span>' +
-          '</div>'
-        );
-      })
-      .join('');
-
-    return (
-      '<button type="button" class="back-link" data-action="hide-estimate">&larr; Back to materials</button>' +
-      '<div class="invoice-card">' +
-      '<div class="invoice-header">' +
-      '<div>' +
-      '<div class="invoice-job">' +
-      escapeHtml(job.address) +
-      '</div>' +
-      '<div class="invoice-job-sub">' +
-      escapeHtml(job.jobTypeLabel) +
-      ' · ' +
-      escapeHtml(job.propertySize) +
-      '</div>' +
-      '</div>' +
-      '<span class="invoice-badge badge-estimate">Estimate</span>' +
-      '</div>' +
-      '<div class="invoice-meta-row">' +
-      '<span>Prepared ' +
-      escapeHtml(invoiceDateFmt.format(new Date())) +
-      '</span>' +
-      '</div>' +
-      '<div class="line-section-label">Labour</div>' +
-      '<div class="line-item"><span class="line-item-name">Labour — ' +
-      escapeHtml(job.jobTypeLabel) +
-      '</span><span class="line-item-value">' +
-      formatEUR(labourCost) +
-      '</span></div>' +
-      '<div class="line-section-label">Materials (estimated)</div>' +
-      materialLines +
-      '<div class="invoice-totals">' +
-      '<div class="line-item"><span class="line-item-name">Subtotal</span><span class="line-item-value">' +
-      formatEUR(subtotal) +
-      '</span></div>' +
-      '<div class="line-item"><span class="line-item-name">VAT (13.5%)</span><span class="line-item-value">' +
-      formatEUR(vat) +
-      '</span></div>' +
-      '<div class="line-item grand"><span class="line-item-name">Estimated total</span><span class="line-item-value">' +
-      formatEUR(total) +
-      '</span></div>' +
-      '</div>' +
-      '<div class="invoice-footer">This is an estimate to give the customer an idea of cost — not a final invoice. Actual costs may vary once materials are ordered.</div>' +
-      '</div>'
-    );
-  }
-
   // ---------------------------------------------------------------------
   // Mutation handlers
   // ---------------------------------------------------------------------
@@ -1237,59 +1101,16 @@
     render();
   }
 
-  function handleLogin(name, email, businessName, tradeRegNumber, attested) {
+  function handleLogin(name, email) {
     const nameError = document.getElementById('login-name-error');
-    const businessNameError = document.getElementById('login-business-name-error');
-    const tradeRegError = document.getElementById('login-trade-reg-error');
-    const attestError = document.getElementById('login-attest-error');
-
     const trimmedName = (name || '').trim();
-    const trimmedBusinessName = (businessName || '').trim();
-    const trimmedTradeReg = (tradeRegNumber || '').trim();
-
-    // Clear all errors up front so a stale error from a previous submit
-    // (for a field the user already fixed) can't survive an early return
-    // triggered by a different, earlier field failing this time.
-    nameError.hidden = true;
-    businessNameError.hidden = true;
-    tradeRegError.hidden = true;
-    attestError.hidden = true;
-
     if (!trimmedName) {
       nameError.hidden = false;
       document.getElementById('login-name').focus();
       return;
     }
     nameError.hidden = true;
-
-    if (!trimmedBusinessName) {
-      businessNameError.hidden = false;
-      document.getElementById('login-business-name').focus();
-      return;
-    }
-    businessNameError.hidden = true;
-
-    if (!trimmedTradeReg) {
-      tradeRegError.hidden = false;
-      document.getElementById('login-trade-reg').focus();
-      return;
-    }
-    tradeRegError.hidden = true;
-
-    if (!attested) {
-      attestError.hidden = false;
-      document.getElementById('login-attest').focus();
-      return;
-    }
-    attestError.hidden = true;
-
-    state.session = {
-      name: trimmedName,
-      email: (email || '').trim(),
-      businessName: trimmedBusinessName,
-      tradeRegNumber: trimmedTradeReg,
-      loginAt: Date.now(),
-    };
+    state.session = { name: trimmedName, email: (email || '').trim(), loginAt: Date.now() };
     state.currentJobId = null;
     render();
   }
@@ -1309,10 +1130,7 @@
       e.preventDefault();
       handleLogin(
         document.getElementById('login-name').value,
-        document.getElementById('login-email').value,
-        document.getElementById('login-business-name').value,
-        document.getElementById('login-trade-reg').value,
-        document.getElementById('login-attest').checked
+        document.getElementById('login-email').value
       );
     });
 
@@ -1324,7 +1142,6 @@
       ui.addItemQuery = '';
       ui.addItemHighlightIndex = 0;
       ui.qtyNotice = null;
-      ui.viewingEstimate = false;
       render();
     });
 
@@ -1342,7 +1159,6 @@
           ui.addItemQuery = '';
           ui.addItemHighlightIndex = 0;
           ui.qtyNotice = null;
-          ui.viewingEstimate = false;
           render();
           break;
         case 'create-job':
@@ -1403,22 +1219,6 @@
         case 'advance-status':
           handleAdvance(el.getAttribute('data-next'), el.getAttribute('data-message'));
           break;
-        case 'go-profile':
-          state.viewingProfile = true;
-          render();
-          break;
-        case 'show-estimate':
-          ui.viewingEstimate = true;
-          render();
-          break;
-        case 'hide-estimate':
-          ui.viewingEstimate = false;
-          render();
-          break;
-        case 'leave-profile':
-          state.viewingProfile = false;
-          render();
-          break;
         default:
           break;
       }
@@ -1430,12 +1230,6 @@
       }
       if (e.target && e.target.id === 'invoice-materials-toggle') {
         handleInvoiceToggle(e.target.checked);
-      }
-      if (e.target && e.target.id === 'profile-rate-hour') {
-        handleProfileRateChange('labourRatePerHour', e.target.value);
-      }
-      if (e.target && e.target.id === 'profile-rate-job') {
-        handleProfileRateChange('labourRatePerJob', e.target.value);
       }
     });
 

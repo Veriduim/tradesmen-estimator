@@ -5,9 +5,8 @@
  *
  * State shape:
  * {
- *   session: { name, email, businessName, tradeRegNumber, loginAt } | null,
+ *   session: { name, email, loginAt } | null,
  *   currentJobId: string | null,
- *   viewingProfile: boolean,
  *   jobs: [{
  *     id, jobType, jobTypeLabel, address, propertySize, labourCost,
  *     materials: [{ id, catalogId, name, unit, qty, options: [...] }],
@@ -15,8 +14,7 @@
  *     wholesalerChoices: { [materialId]: wholesalerId },
  *     invoiceIncludesMaterials,
  *     createdAt, updatedAt
- *   }],
- *   profile: { labourRatePerHour: number | null, labourRatePerJob: number | null }
+ *   }]
  * }
  */
 
@@ -43,9 +41,7 @@ function defaultState() {
   return {
     session: null,
     currentJobId: null,
-    viewingProfile: false,
     jobs: [],
-    profile: { labourRatePerHour: null, labourRatePerJob: null },
   };
 }
 

@@ -13,7 +13,6 @@
   <header class="app-header" id="app-header" hidden>
     <span class="app-header-name">Sparkline</span>
     <span class="app-header-user" id="app-header-user"></span>
-    <button class="app-header-profile" id="btn-profile" type="button" data-action="go-profile">Profile</button>
     <button class="app-header-logout" id="btn-logout" type="button">Log out</button>
   </header>
 
@@ -37,29 +36,12 @@
           <p class="field-error" id="login-name-error" hidden>Enter your name to continue.</p>
 
           <label class="field">
-            <span class="field-label">Business / company name</span>
-            <input type="text" id="login-business-name" name="businessName" placeholder="Your business name" autocomplete="organization" />
-          </label>
-          <p class="field-error" id="login-business-name-error" hidden>Enter your business name to continue.</p>
-
-          <label class="field">
-            <span class="field-label">Trade registration number</span>
-            <input type="text" id="login-trade-reg" name="tradeRegNumber" placeholder="Your trade registration number" autocomplete="off" />
-          </label>
-          <p class="field-error" id="login-trade-reg-error" hidden>Enter your trade registration number to continue.</p>
-
-          <label class="field">
-            <span class="field-label"><input type="checkbox" id="login-attest" name="attest" /> I confirm I am a registered tradesperson</span>
-          </label>
-          <p class="field-error" id="login-attest-error" hidden>Confirm you are a registered tradesperson to continue.</p>
-
-          <label class="field">
             <span class="field-label">Email (optional)</span>
             <input type="email" id="login-email" name="email" placeholder="you@example.com" autocomplete="email" />
           </label>
 
           <button type="submit" class="btn btn-primary btn-block">Sign in</button>
-          <p class="login-note">Demo login &mdash; no password, no real verification, nothing is sent anywhere. Don&rsquo;t enter a real business name or registration number.</p>
+          <p class="login-note">Demo login &mdash; no password, nothing is sent anywhere.</p>
         </form>
       </div>
     </section>
@@ -91,17 +73,6 @@
       <div class="stage-caption" id="job-stage-caption"></div>
 
       <div id="job-detail-body" class="job-detail-body"></div>
-    </section>
-
-    <!-- PROFILE -->
-    <section id="screen-profile" class="screen" hidden>
-      <div class="topbar">
-        <button class="back-link" id="btn-back-from-profile" type="button" data-action="leave-profile">&larr; Back</button>
-        <div class="screen-title">Profile</div>
-        <div class="screen-sub">Your labour rates</div>
-      </div>
-
-      <div id="profile-body" class="job-detail-body"></div>
     </section>
 
   </main>

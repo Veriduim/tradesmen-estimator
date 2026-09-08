@@ -93,18 +93,6 @@ input {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.app-header-profile {
-  background: none;
-  border: none;
-  color: var(--accent);
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  padding: 4px 0;
-}
-.app-header-profile:hover {
-  text-decoration: underline;
-}
 .app-header-logout {
   background: none;
   border: none;
@@ -453,13 +441,6 @@ main {
   display: flex;
   flex-direction: column;
   padding-bottom: 24px;
-}
-
-#profile-body {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  padding: 16px;
 }
 
 /* ===== Materials list ===== */
@@ -876,10 +857,6 @@ main {
   padding: 3px 9px;
   border-radius: 999px;
   white-space: nowrap;
-}
-.invoice-badge.badge-estimate {
-  color: var(--warn-ink);
-  background: var(--warn-soft);
 }
 
 .toggle-row {
