@@ -18,7 +18,8 @@
  *   }],
  *   profile: {
  *     labourRatePerHour: number | null, labourRatePerJob: number | null,
- *     pendingReview: boolean
+ *     pendingReview: boolean,
+ *     warehouse: [{ id, name, qty, note }]
  *   }
  * }
  */
@@ -48,7 +49,7 @@ function defaultState() {
     currentJobId: null,
     viewingProfile: false,
     jobs: [],
-    profile: { labourRatePerHour: null, labourRatePerJob: null, pendingReview: false },
+    profile: { labourRatePerHour: null, labourRatePerJob: null, pendingReview: false, warehouse: [] },
   };
 }
 

@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Sparkline — Direction B "Clean / Modern SaaS" tokens
+   TradesLine — Direction B "Clean / Modern SaaS" tokens
    Ported from bmad/planning-artifacts/ux-designs/.../direction-b-clean-modern.html
    ========================================================================== */
 
@@ -22,11 +22,35 @@
   --ok-ink: #15803d;
   --danger: #dc2626;
   --danger-soft: #fee2e2;
+
   --radius-lg: 20px;
   --radius-md: 16px;
   --radius-sm: 10px;
   --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04);
   --shadow-elevated: 0 20px 40px -12px rgba(15, 23, 42, 0.18), 0 2px 6px rgba(15, 23, 42, 0.06);
+}
+
+/* ==========================================================================
+   Color-scheme preview only — swaps just the accent trio, never shipped
+   as user-facing UI. Toggled via the ?preview-themes=1 dev switcher in
+   app.js (init()); has no effect otherwise. Remove this block (and the
+   switcher in app.js) once a scheme is picked, or fold the chosen values
+   into :root above and delete the rest.
+   ========================================================================== */
+body.theme-blue {
+  --accent: #2563eb;
+  --accent-dark: #1d4ed8;
+  --accent-soft: #dbeafe;
+}
+body.theme-indigo {
+  --accent: #4f46e5;
+  --accent-dark: #4338ca;
+  --accent-soft: #e0e7ff;
+}
+body.theme-rust {
+  --accent: #9a3412;
+  --accent-dark: #7c2d12;
+  --accent-soft: #ffedd5;
 }
 
 * {
@@ -214,7 +238,8 @@ main {
   color: var(--accent-dark);
 }
 .field input,
-.field select {
+.field select,
+.warehouse-add-row input {
   background: var(--surface-alt);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
@@ -223,9 +248,27 @@ main {
   color: var(--ink);
 }
 .field input:focus,
-.field select:focus {
+.field select:focus,
+.warehouse-add-row input:focus {
   outline: 2px solid var(--accent);
   outline-offset: -1px;
+}
+.warehouse-add-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.warehouse-add-row input#warehouse-add-name {
+  flex: 2;
+  min-width: 120px;
+}
+.warehouse-add-row input#warehouse-add-qty {
+  flex: 0 0 70px;
+}
+.warehouse-add-row input#warehouse-add-note {
+  flex: 2;
+  min-width: 120px;
 }
 .field-error {
   margin-top: -10px;
@@ -573,6 +616,11 @@ main {
   font-weight: 700;
   font-size: 13px;
   color: var(--ink);
+}
+.mat-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
 }
 .mat-remove {
   background: var(--danger-soft);

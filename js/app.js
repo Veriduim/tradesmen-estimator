@@ -591,6 +591,73 @@
     );
   }
 
+  // Personal leftover-materials list — deliberately separate from
+  // MATERIAL_CATALOG (no catalogId/unit-price/trade link): a flat visual
+  // inventory, not tied to wholesaler pricing or a specific job.
+  function warehouseSectionHTML() {
+    const items = state.profile.warehouse;
+    const rows = items
+      .map(function (item) {
+        return (
+          '<div class="line-item">' +
+          '<span class="line-item-name">' +
+          escapeHtml(item.name) +
+          ' <span class="line-item-qty">(' +
+          item.qty +
+          ')</span>' +
+          (item.note ? ' <span class="line-item-qty">— ' + escapeHtml(item.note) + '</span>' : '') +
+          '</span>' +
+          '<button type="button" class="mat-remove" data-action="remove-warehouse-item" data-item-id="' +
+          item.id +
+          '">Remove</button>' +
+          '</div>'
+        );
+      })
+      .join('');
+
+    return (
+      '<div class="picker-heading">Your Materials Warehouse</div>' +
+      (items.length ? rows : '<p class="empty-state">No leftover materials logged yet.</p>') +
+      '<div class="warehouse-add-row">' +
+      '<input type="text" id="warehouse-add-name" placeholder="Material name" />' +
+      '<input type="number" id="warehouse-add-qty" min="1" step="1" value="1" placeholder="Qty" />' +
+      '<input type="text" id="warehouse-add-note" placeholder="Note (optional)" />' +
+      '<button type="button" class="btn btn-secondary" data-action="add-warehouse-item">Add</button>' +
+      '</div>' +
+      '<p class="field-error" id="warehouse-add-error" hidden>Enter a material name to add it.</p>'
+    );
+  }
+
+  function handleAddWarehouseItem() {
+    const nameInput = document.getElementById('warehouse-add-name');
+    const qtyInput = document.getElementById('warehouse-add-qty');
+    const noteInput = document.getElementById('warehouse-add-note');
+    const errorEl = document.getElementById('warehouse-add-error');
+
+    const trimmedName = (nameInput.value || '').trim();
+    if (!trimmedName) {
+      errorEl.hidden = false;
+      nameInput.focus();
+      return;
+    }
+
+    const qty = parseInt(qtyInput.value, 10);
+    state.profile.warehouse.push({
+      id: generateId('wh'),
+      name: trimmedName,
+      qty: Number.isFinite(qty) && qty > 0 ? qty : 1,
+      note: (noteInput.value || '').trim(),
+    });
+    renderProfile();
+  }
+
+  function handleRemoveWarehouseItem(itemId) {
+    state.profile.warehouse = state.profile.warehouse.filter(function (item) {
+      return item.id !== itemId;
+    });
+    renderProfile();
+  }
+
   function renderProfile() {
     const body = document.getElementById('profile-body');
 
@@ -610,6 +677,7 @@
     body.innerHTML =
       identitySectionHTML() +
       rateSectionHTML() +
+      warehouseSectionHTML() +
       '<div class="picker-heading">Your Jobs</div>' +
       '<div class="job-list">' +
       jobsHTML +
@@ -813,7 +881,7 @@
           '</div>' +
           '</div>' +
           '</div>' +
-          '<div>' +
+          '<div class="mat-actions">' +
           '<div class="qty-box">' +
           '<button type="button" data-action="qty-dec" data-material-id="' +
           m.id +
@@ -1715,6 +1783,12 @@
           ui.editingRates = false;
           renderProfile();
           break;
+        case 'add-warehouse-item':
+          handleAddWarehouseItem();
+          break;
+        case 'remove-warehouse-item':
+          handleRemoveWarehouseItem(el.getAttribute('data-item-id'));
+          break;
         case 'show-estimate':
           ui.viewingEstimate = true;
           render();
@@ -1820,7 +1894,45 @@
       });
     }
 
+    initThemePreviewSwitcher();
     render();
+  }
+
+  // Dev-only color-scheme preview — only appears with ?preview-themes=1
+  // in the URL, never in normal use or the promoted/deployed build.
+  // Toggles a class on <body> matching the `body.theme-*` overrides in
+  // styles.css (accent trio only). Pick a scheme, then either fold its
+  // values into :root in styles.css and delete this + the CSS block, or
+  // leave both in place for further comparison later.
+  function initThemePreviewSwitcher() {
+    if (!/[?&]preview-themes=1\b/.test(location.search)) return;
+
+    const schemes = [
+      { id: '', label: 'Teal (current)' },
+      { id: 'theme-blue', label: 'Construction Blue' },
+      { id: 'theme-indigo', label: 'Deep Indigo' },
+      { id: 'theme-rust', label: 'Rust' },
+    ];
+
+    const bar = document.createElement('div');
+    bar.style.cssText =
+      'position:fixed;bottom:12px;right:12px;z-index:9999;display:flex;gap:6px;' +
+      'background:#111827;padding:8px;border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,.3);';
+
+    schemes.forEach(function (scheme) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = scheme.label;
+      btn.style.cssText =
+        'font-size:11px;font-weight:600;padding:6px 10px;border-radius:6px;border:none;' +
+        'cursor:pointer;background:#374151;color:#fff;';
+      btn.addEventListener('click', function () {
+        document.body.className = scheme.id;
+      });
+      bar.appendChild(btn);
+    });
+
+    document.body.appendChild(bar);
   }
 
   document.addEventListener('DOMContentLoaded', init);
