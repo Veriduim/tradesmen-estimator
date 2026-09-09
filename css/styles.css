@@ -239,6 +239,7 @@ main {
 }
 .field input,
 .field select,
+.field textarea,
 .warehouse-add-row input {
   background: var(--surface-alt);
   border: 1px solid var(--border);
@@ -246,9 +247,15 @@ main {
   padding: 12px 14px;
   font-size: 14px;
   color: var(--ink);
+  font-family: inherit;
+}
+.field textarea {
+  min-height: 72px;
+  resize: vertical;
 }
 .field input:focus,
 .field select:focus,
+.field textarea:focus,
 .warehouse-add-row input:focus {
   outline: 2px solid var(--accent);
   outline-offset: -1px;
@@ -395,6 +402,10 @@ main {
 .status-badge-active {
   color: var(--accent-dark);
   background: var(--accent-soft);
+}
+.status-badge-warn {
+  color: var(--warn-ink);
+  background: var(--warn-soft);
 }
 .status-badge-done {
   color: var(--ok-ink);
@@ -561,6 +572,12 @@ main {
   border: 2px solid #cbd5e1;
   flex-shrink: 0;
   margin-top: 1px;
+  background: none;
+  padding: 0;
+  font-family: inherit;
+}
+button.checkbox {
+  cursor: pointer;
 }
 .checkbox.checked {
   background: var(--ok);
@@ -571,6 +588,13 @@ main {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+.contact-log {
+  font-size: 11px;
+  color: var(--ink-faint);
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px dashed var(--border);
 }
 .mat-name {
   font-size: 14px;
@@ -936,6 +960,12 @@ main {
   color: var(--ink-faint);
   text-align: center;
 }
+.invoice-notes {
+  font-size: 12.5px;
+  color: var(--ink-dim);
+  white-space: pre-wrap;
+  margin: 4px 0 0;
+}
 .invoice-badge {
   font-size: 11px;
   font-weight: 700;
@@ -1131,4 +1161,33 @@ main {
   text-align: center;
   color: var(--ink-faint);
   font-size: 13px;
+}
+
+/* ==========================================================================
+   Print (Download PDF) — only the invoice/estimate card should print;
+   everything else (nav, stepper, toggles, action buttons) is app chrome.
+   Triggered by window.print() from the "Download PDF" button; the user
+   picks "Save as PDF" in the browser's own print dialog.
+   ========================================================================== */
+@media print {
+  .app-header,
+  .topbar,
+  .stepper,
+  .stage-caption,
+  .back-link,
+  [data-no-print] {
+    display: none !important;
+  }
+  body {
+    background: #fff;
+  }
+  .app-shell {
+    box-shadow: none;
+    max-width: none;
+  }
+  .invoice-card {
+    border: none;
+    box-shadow: none;
+    margin: 0;
+  }
 }

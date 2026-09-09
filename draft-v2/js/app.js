@@ -11,7 +11,7 @@
   const STATUS_LABELS = {
     'job-details': 'Job Details',
     'materials-needed': 'Materials Needed',
-    'wholesaler-selected': 'Wholesaler Selected',
+    'wholesaler-selected': 'Pending Materials',
     'materials-delivered': 'Materials Delivered',
     'job-started': 'Job Started',
     'job-completed': 'Job Completed',
@@ -44,6 +44,7 @@
     confirmCancelJobId: null, // set while the cancel-job confirm popup is open
     editingProfileDetails: false, // toggles the Profile identity section (name/business/trade reg) into edit mode
     editingRates: false, // toggles the Profile labour-rate section into edit mode
+    editingInvoice: false, // toggles the final-invoice screen into edit mode
   };
 
   let toastTimer = null;
@@ -78,6 +79,18 @@
     if (diffMs < 2 * day) return 'Updated yesterday';
     const days = Math.floor(diffMs / day);
     return 'Updated ' + days + ' days ago';
+  }
+
+  // Same day-bucketing as relativeTime, different phrasing — used on the
+  // mocked wholesaler contact-log line rather than a job-card timestamp.
+  function requestedTimeLabel(ts) {
+    if (!ts) return '';
+    const diffMs = Date.now() - ts;
+    const day = 24 * 60 * 60 * 1000;
+    if (diffMs < day) return 'today';
+    if (diffMs < 2 * day) return 'yesterday';
+    const days = Math.floor(diffMs / day);
+    return days + ' days ago';
   }
 
   function findJob(id) {
@@ -127,6 +140,12 @@
   function allMaterialsHaveWholesaler(job) {
     return job.materials.every(function (m) {
       return !!job.wholesalerChoices[m.id];
+    });
+  }
+
+  function allMaterialsReceived(job) {
+    return job.materials.every(function (m) {
+      return !!m.received;
     });
   }
 
@@ -314,16 +333,32 @@
   // the terminal `invoice` status gets the "done" treatment — matches the
   // Active/Completed section split below.
   function jobCardHTML(job) {
-    const metaRight =
-      job.status === 'invoice'
-        ? formatEUR(invoiceTotal(job)) + ' due'
-        : job.materials.length + ' item' + (job.materials.length === 1 ? '' : 's');
-    const isCompleted = job.status === 'invoice';
-    // The Completed section groups by the terminal `invoice` status, but
-    // its own stage label ("Invoice") doesn't read as "done" on its own —
-    // give it distinct badge copy so the section heading and card badge
-    // use consistent completed/active vocabulary.
-    const badgeLabel = isCompleted ? 'Invoiced' : STATUS_LABELS[job.status] || 'Unknown';
+    const isPaid = job.status === 'invoice' && job.customerPaid;
+    const isPendingPayment = job.status === 'invoice' && !job.customerPaid;
+    const isPendingMaterials = job.status === 'wholesaler-selected';
+
+    const metaRight = isPaid
+      ? formatEUR(invoiceTotal(job)) + ' paid'
+      : job.status === 'invoice'
+      ? formatEUR(invoiceTotal(job)) + ' due'
+      : job.materials.length + ' item' + (job.materials.length === 1 ? '' : 's');
+
+    let badgeLabel;
+    let badgeClass;
+    if (isPaid) {
+      badgeLabel = 'Paid';
+      badgeClass = 'status-badge-done';
+    } else if (isPendingPayment) {
+      badgeLabel = 'Pending Payment';
+      badgeClass = 'status-badge-warn';
+    } else if (isPendingMaterials) {
+      badgeLabel = 'Pending Materials';
+      badgeClass = 'status-badge-warn';
+    } else {
+      badgeLabel = STATUS_LABELS[job.status] || 'Unknown';
+      badgeClass = 'status-badge-active';
+    }
+
     return (
       '<button type="button" class="job-card" data-action="open-job" data-job-id="' +
       job.id +
@@ -332,8 +367,8 @@
       '<div class="job-addr">' +
       escapeHtml(job.address) +
       '</div>' +
-      '<span class="status-badge' +
-      (isCompleted ? ' status-badge-done' : ' status-badge-active') +
+      '<span class="status-badge ' +
+      badgeClass +
       '">' +
       escapeHtml(badgeLabel) +
       '</span>' +
@@ -356,6 +391,26 @@
       '</span></div>' +
       '</button>'
     );
+  }
+
+  // Single source of truth for the dashboard/Profile job groupings, so
+  // the two lists (and their counts) can never silently diverge on what
+  // counts as "pending materials" vs "pending payment".
+  function groupJobsByBucket(jobs) {
+    return {
+      active: jobs.filter(function (j) {
+        return j.status !== 'invoice' && j.status !== 'wholesaler-selected';
+      }),
+      pendingMaterials: jobs.filter(function (j) {
+        return j.status === 'wholesaler-selected';
+      }),
+      pendingPayment: jobs.filter(function (j) {
+        return j.status === 'invoice' && !j.customerPaid;
+      }),
+      completed: jobs.filter(function (j) {
+        return j.status === 'invoice' && j.customerPaid;
+      }),
+    };
   }
 
   // Renders one dashboard section (heading + cards); returns '' (hiding
@@ -381,25 +436,26 @@
       return (b.updatedAt || 0) - (a.updatedAt || 0);
     });
 
-    const activeJobs = jobs.filter(function (j) {
-      return j.status !== 'invoice';
-    });
-    const completedJobs = jobs.filter(function (j) {
-      return j.status === 'invoice';
-    });
+    const groups = groupJobsByBucket(jobs);
 
-    // Reflects the Active/Completed split below rather than one combined
-    // "open jobs" count, which reads as wrong once any job is completed.
+    // Reflects the section split below rather than one combined "open
+    // jobs" count, which reads as wrong once any job is pending/completed.
     if (!jobs.length) {
       countSub.textContent = 'No jobs yet — pick a job type below to start one';
-    } else if (completedJobs.length) {
-      countSub.textContent =
-        activeJobs.length + ' active · ' + completedJobs.length + ' completed';
     } else {
-      countSub.textContent = activeJobs.length + ' open job' + (activeJobs.length === 1 ? '' : 's');
+      const parts = [];
+      if (groups.active.length) parts.push(groups.active.length + ' active');
+      if (groups.pendingMaterials.length) parts.push(groups.pendingMaterials.length + ' pending materials');
+      if (groups.pendingPayment.length) parts.push(groups.pendingPayment.length + ' pending payment');
+      if (groups.completed.length) parts.push(groups.completed.length + ' completed');
+      countSub.textContent = parts.join(' · ');
     }
 
-    jobsWrap.innerHTML = jobSectionHTML('Active', activeJobs) + jobSectionHTML('Completed', completedJobs);
+    jobsWrap.innerHTML =
+      jobSectionHTML('Active', groups.active) +
+      jobSectionHTML('Pending Materials', groups.pendingMaterials) +
+      jobSectionHTML('Pending Customer Payment', groups.pendingPayment) +
+      jobSectionHTML('Completed', groups.completed);
 
     const tradePresets = JOB_PRESETS.filter(function (preset) {
       return preset.trade === state.session.trade;
@@ -450,6 +506,7 @@
         unit: cat.unit,
         qty: m.qty,
         options: cat.options,
+        received: false,
       };
     });
 
@@ -459,13 +516,16 @@
       jobType: preset.id,
       jobTypeLabel: preset.label,
       trade: preset.trade,
-      address: preset.address,
+      address: '', // captured on the job-details screen, not copied from the preset
       propertySize: preset.propertySize,
       labourCost: preset.labourCost,
       materials: materials,
-      status: 'materials-needed',
+      status: 'job-details',
       wholesalerChoices: {},
       invoiceIncludesMaterials: true,
+      customerPaid: false,
+      extraCharges: [],
+      invoiceNotes: '',
       createdAt: now,
       updatedAt: now,
     };
@@ -478,6 +538,21 @@
     ui.openWholesalerFor = null;
     ui.qtyNotice = null;
     ui.viewingEstimate = false;
+    render();
+  }
+
+  function handleSaveJobAddress(address) {
+    const job = findJob(state.currentJobId);
+    if (!job) return;
+    const trimmed = (address || '').trim();
+    if (!trimmed) {
+      document.getElementById('job-address-error').hidden = false;
+      document.getElementById('job-address-input').focus();
+      return;
+    }
+    job.address = trimmed;
+    job.status = 'materials-needed';
+    touchJob(job);
     render();
   }
 
@@ -664,14 +739,12 @@
     const jobs = state.jobs.slice().sort(function (a, b) {
       return (b.updatedAt || 0) - (a.updatedAt || 0);
     });
-    const activeJobs = jobs.filter(function (j) {
-      return j.status !== 'invoice';
-    });
-    const completedJobs = jobs.filter(function (j) {
-      return j.status === 'invoice';
-    });
+    const groups = groupJobsByBucket(jobs);
     const jobsHTML = jobs.length
-      ? jobSectionHTML('Active', activeJobs) + jobSectionHTML('Completed', completedJobs)
+      ? jobSectionHTML('Active', groups.active) +
+        jobSectionHTML('Pending Materials', groups.pendingMaterials) +
+        jobSectionHTML('Pending Customer Payment', groups.pendingPayment) +
+        jobSectionHTML('Completed', groups.completed)
       : '<p class="empty-state">No jobs yet.</p>';
 
     body.innerHTML =
@@ -753,14 +826,45 @@
   // Job detail screen — shell
   // ---------------------------------------------------------------------
 
+  // Small flat pool for the "Use example address" quick-fill — not
+  // region-matched to the signed-in user, deliberately simple per this
+  // pass's scope (flow/visualization, not real address data).
+  const EXAMPLE_ADDRESSES = [
+    '45 Elm Court, Dublin 8',
+    '9 Riverside Terrace, Cork',
+    '3 Parkview Grove, Galway',
+    '17 Meadowbrook Lane, Limerick',
+    '22 Orchard Close, Waterford',
+  ];
+
+  function jobDetailsHTML(job) {
+    return (
+      '<label class="field">' +
+      '<span class="field-label">Job address</span>' +
+      '<input type="text" id="job-address-input" placeholder="e.g. 12 Maple Grove, Dublin 15" value="' +
+      escapeHtml(job.address) +
+      '" /></label>' +
+      '<p class="field-error" id="job-address-error" hidden>Enter an address to continue.</p>' +
+      '<button type="button" class="btn btn-secondary" data-action="use-example-address">Use example address</button>' +
+      '<div class="action-bar">' +
+      '<button type="button" class="btn btn-primary btn-block" data-action="save-job-address">Continue</button>' +
+      '</div>'
+    );
+  }
+
   function renderJobDetail(job) {
     document.getElementById('job-detail-title').textContent = job.jobTypeLabel;
-    document.getElementById('job-detail-sub').textContent = job.address + ' · ' + job.propertySize;
+    document.getElementById('job-detail-sub').textContent = job.address
+      ? job.address + ' · ' + job.propertySize
+      : job.propertySize;
     document.getElementById('job-stepper').innerHTML = stepperHTML(job.status);
     document.getElementById('job-stage-caption').textContent = stageCaption(job.status);
 
     const body = document.getElementById('job-detail-body');
     switch (job.status) {
+      case 'job-details':
+        body.innerHTML = jobDetailsHTML(job);
+        break;
       case 'materials-needed':
         body.innerHTML = ui.viewingEstimate ? estimateInvoiceHTML(job) : materialsNeededHTML(job);
         break;
@@ -1043,11 +1147,26 @@
     const rows = job.materials
       .map(function (m) {
         const opt = chosenOption(job, m);
+        const wholesalerName = opt ? escapeHtml(WHOLESALERS[opt.wholesalerId].name) : 'Unknown';
         return (
-          '<div class="mat-row">' +
+          '<div class="mat-row' +
+          (m.received ? ' delivered' : '') +
+          '" data-material-id="' +
+          m.id +
+          '">' +
           '<div class="mat-top">' +
           '<div class="mat-left">' +
-          '<div class="checkbox"></div>' +
+          '<button type="button" class="checkbox' +
+          (m.received ? ' checked' : '') +
+          '" data-action="toggle-received" data-material-id="' +
+          m.id +
+          '" aria-pressed="' +
+          (m.received ? 'true' : 'false') +
+          '" aria-label="Mark ' +
+          escapeHtml(m.name) +
+          ' as received">' +
+          (m.received ? '✓' : '') +
+          '</button>' +
           '<div>' +
           '<div class="mat-name">' +
           escapeHtml(m.name) +
@@ -1056,6 +1175,7 @@
           m.qty +
           ' ' +
           escapeHtml(m.unit) +
+          (m.received ? ' · received' : '') +
           '</div>' +
           '</div>' +
           '</div>' +
@@ -1065,13 +1185,23 @@
           '</div>' +
           '<div class="wholesaler-row">' +
           '<div class="chip ok"><span class="dot"></span>' +
-          (opt ? escapeHtml(WHOLESALERS[opt.wholesalerId].name) : 'Unknown') +
+          wholesalerName +
           '</div>' +
+          '</div>' +
+          '<div class="contact-log">Requested via email · ' +
+          wholesalerName +
+          ' · ' +
+          requestedTimeLabel(job.materialsOrderedAt) +
           '</div>' +
           '</div>'
         );
       })
       .join('');
+
+    const allReceived = allMaterialsReceived(job);
+    const receivedCount = job.materials.filter(function (m) {
+      return m.received;
+    }).length;
 
     return (
       '<div class="status-panel ok">' +
@@ -1083,13 +1213,22 @@
       job.materials.length +
       ' item' +
       (job.materials.length === 1 ? '' : 's') +
-      '. Materials are on order.</div>' +
+      '. Materials are on order — check each item off as it arrives.</div>' +
       '</div>' +
       '<div class="mat-list">' +
       rows +
       '</div>' +
       '<div class="action-bar">' +
-      '<button type="button" class="btn btn-primary btn-block" data-action="advance-status" data-next="materials-delivered" data-message="Marked as delivered.">Mark Delivered</button>' +
+      '<button type="button" class="btn btn-primary btn-block" data-action="advance-status" data-next="materials-delivered" data-message="Marked as delivered."' +
+      (allReceived ? '' : ' disabled') +
+      '>Mark Delivered</button>' +
+      (allReceived
+        ? ''
+        : '<p class="inline-error">' +
+          receivedCount +
+          ' of ' +
+          job.materials.length +
+          ' items checked off — mark every item received before continuing.</p>') +
       '</div>'
     );
   }
@@ -1186,10 +1325,20 @@
   function invoiceBreakdown(job) {
     const materialsCost = materialsCostFinal(job);
     const includeMaterials = job.invoiceIncludesMaterials;
-    const subtotal = job.labourCost + (includeMaterials ? materialsCost : 0);
+    const extraChargesTotal = (job.extraCharges || []).reduce(function (sum, c) {
+      return sum + c.amount;
+    }, 0);
+    const subtotal = job.labourCost + (includeMaterials ? materialsCost : 0) + extraChargesTotal;
     const vat = subtotal * VAT_RATE;
     const total = subtotal + vat;
-    return { materialsCost: materialsCost, includeMaterials: includeMaterials, subtotal: subtotal, vat: vat, total: total };
+    return {
+      materialsCost: materialsCost,
+      includeMaterials: includeMaterials,
+      extraChargesTotal: extraChargesTotal,
+      subtotal: subtotal,
+      vat: vat,
+      total: total,
+    };
   }
 
   function invoiceTotal(job) {
@@ -1208,6 +1357,8 @@
   const TRADESPERSON_VAT_NUMBER = 'IE1234567T';
 
   function invoiceHTML(job) {
+    if (ui.editingInvoice) return invoiceEditHTML(job);
+
     const breakdown = invoiceBreakdown(job);
     const materialsCost = breakdown.materialsCost;
     const includeMaterials = breakdown.includeMaterials;
@@ -1238,6 +1389,33 @@
       })
       .join('');
 
+    const extraChargeLines = (job.extraCharges || [])
+      .map(function (c) {
+        return (
+          '<div class="line-item"><span class="line-item-name">' +
+          escapeHtml(c.description) +
+          '</span><span class="line-item-value">' +
+          formatEUR(c.amount) +
+          '</span></div>'
+        );
+      })
+      .join('');
+
+    const notesBlock = job.invoiceNotes
+      ? '<div class="line-section-label">Notes</div><p class="invoice-notes">' + escapeHtml(job.invoiceNotes) + '</p>'
+      : '';
+
+    const badgeLabel = job.customerPaid ? 'Paid' : 'Awaiting Payment';
+    const badgeClass = job.customerPaid ? '' : ' badge-estimate';
+
+    const actionButtons = job.customerPaid
+      ? '<button type="button" class="btn btn-secondary btn-block" data-action="download-pdf">Download PDF</button>'
+      : '<button type="button" class="btn btn-secondary" data-action="edit-invoice">Edit Invoice</button>' +
+        '<button type="button" class="btn btn-secondary" data-action="download-pdf">Download PDF</button>' +
+        '<button type="button" class="btn btn-primary btn-block" data-action="mark-paid" data-job-id="' +
+        job.id +
+        '">Mark as Paid</button>';
+
     return (
       '<div class="invoice-card">' +
       '<div class="invoice-header">' +
@@ -1251,7 +1429,11 @@
       escapeHtml(job.propertySize) +
       '</div>' +
       '</div>' +
-      '<span class="invoice-badge">Ready</span>' +
+      '<span class="invoice-badge' +
+      badgeClass +
+      '">' +
+      badgeLabel +
+      '</span>' +
       '</div>' +
       '<div class="invoice-meta-row">' +
       '<span>Invoice ' +
@@ -1261,7 +1443,7 @@
       escapeHtml(invoiceDateFmt.format(new Date())) +
       '</span>' +
       '</div>' +
-      '<div class="toggle-row">' +
+      '<div class="toggle-row" data-no-print>' +
       '<div>' +
       '<div class="toggle-label">Include materials cost</div>' +
       '<div class="toggle-sub">Off = labour-only invoice</div>' +
@@ -1269,6 +1451,7 @@
       '<label class="switch">' +
       '<input type="checkbox" id="invoice-materials-toggle"' +
       (includeMaterials ? ' checked' : '') +
+      (job.customerPaid ? ' disabled' : '') +
       '>' +
       '<span class="switch-track"></span>' +
       '</label>' +
@@ -1283,6 +1466,7 @@
       (includeMaterials ? '' : ' (excluded from this invoice)') +
       '</div>' +
       materialLines +
+      (extraChargeLines ? '<div class="line-section-label">Extra Charges</div>' + extraChargeLines : '') +
       '<div class="invoice-totals">' +
       '<div class="line-item"><span class="line-item-name">Subtotal</span><span class="line-item-value">' +
       formatEUR(subtotal) +
@@ -1294,8 +1478,57 @@
       formatEUR(total) +
       '</span></div>' +
       '</div>' +
+      notesBlock +
       '<div class="invoice-footer">VAT registration ' +
       escapeHtml(TRADESPERSON_VAT_NUMBER) +
+      '</div>' +
+      '</div>' +
+      '<div class="action-bar" data-no-print>' +
+      actionButtons +
+      '</div>'
+    );
+  }
+
+  function invoiceEditHTML(job) {
+    const chargeRows = (job.extraCharges || [])
+      .map(function (c) {
+        return (
+          '<div class="line-item"><span class="line-item-name">' +
+          escapeHtml(c.description) +
+          '</span><span class="line-item-value">' +
+          formatEUR(c.amount) +
+          '</span>' +
+          '<button type="button" class="mat-remove" data-action="remove-extra-charge" data-charge-id="' +
+          c.id +
+          '">Remove</button></div>'
+        );
+      })
+      .join('');
+
+    return (
+      '<div class="invoice-card">' +
+      '<div class="line-section-label">Editing invoice</div>' +
+      '<label class="field">' +
+      '<span class="field-label">Labour cost (EUR)</span>' +
+      '<input type="number" id="invoice-labour-input" min="0" step="0.01" value="' +
+      job.labourCost +
+      '" /></label>' +
+      '<div class="line-section-label">Extra Charges</div>' +
+      chargeRows +
+      '<div class="warehouse-add-row">' +
+      '<input type="text" id="extra-charge-desc" placeholder="Description (e.g. additional materials)" />' +
+      '<input type="number" id="extra-charge-amount" min="0" step="0.01" placeholder="Amount" />' +
+      '<button type="button" class="btn btn-secondary" data-action="add-extra-charge">Add</button>' +
+      '</div>' +
+      '<p class="field-error" id="extra-charge-error" hidden>Enter a description and a valid amount.</p>' +
+      '<label class="field">' +
+      '<span class="field-label">Notes (explain any labour or material changes to the customer)</span>' +
+      '<textarea id="invoice-notes-input" rows="3">' +
+      escapeHtml(job.invoiceNotes || '') +
+      '</textarea></label>' +
+      '<div class="action-bar">' +
+      '<button type="button" class="btn btn-secondary" data-action="cancel-edit-invoice">Cancel</button>' +
+      '<button type="button" class="btn btn-primary" data-action="save-invoice-edit">Save</button>' +
       '</div>' +
       '</div>'
     );
@@ -1387,7 +1620,8 @@
       '</div>' +
       '<div class="invoice-footer">This is an estimate to give the customer an idea of cost — not a final invoice. Actual costs may vary once materials are ordered.</div>' +
       '</div>' +
-      '<div class="action-bar">' +
+      '<div class="action-bar" data-no-print>' +
+      '<button type="button" class="btn btn-secondary btn-block" data-action="download-pdf">Download PDF</button>' +
       '<button type="button" class="btn btn-danger btn-block" data-action="cancel-job" data-job-id="' +
       job.id +
       '">Cancel job — customer declined</button>' +
@@ -1472,6 +1706,7 @@
       unit: cat.unit,
       qty: 1,
       options: cat.options,
+      received: false,
     });
 
     ui.addItemOpen = false;
@@ -1499,6 +1734,100 @@
     showToast('Cancelled "' + job.jobTypeLabel + '".', true);
   }
 
+  function handleToggleReceived(materialId) {
+    const job = findJob(state.currentJobId);
+    if (!job) return;
+    const material = job.materials.find(function (m) {
+      return m.id === materialId;
+    });
+    if (!material) return;
+    material.received = !material.received;
+    touchJob(job);
+    render();
+  }
+
+  // Preserves whatever the user has typed into the invoice-edit form's
+  // labour/notes fields (not yet saved) across a render() triggered by
+  // something else on the same screen — render() regenerates the whole
+  // edit form via invoiceEditHTML, which would otherwise silently wipe an
+  // in-progress, unsaved edit to those two fields (observed live: adding
+  // an extra charge reset a just-typed labour-cost value back to the
+  // job's old one). Same class of bug as the earlier Profile rate-fields
+  // fix, different shape since this screen's re-render is unavoidable
+  // (the charges list itself must update).
+  function withPreservedInvoiceEditFields(fn) {
+    const labourInput = document.getElementById('invoice-labour-input');
+    const notesInput = document.getElementById('invoice-notes-input');
+    const preservedLabour = labourInput ? labourInput.value : null;
+    const preservedNotes = notesInput ? notesInput.value : null;
+    fn();
+    if (preservedLabour !== null) {
+      const restoredLabour = document.getElementById('invoice-labour-input');
+      if (restoredLabour) restoredLabour.value = preservedLabour;
+    }
+    if (preservedNotes !== null) {
+      const restoredNotes = document.getElementById('invoice-notes-input');
+      if (restoredNotes) restoredNotes.value = preservedNotes;
+    }
+  }
+
+  // Extra charges save immediately (like adding a material) rather than
+  // waiting for the invoice-edit Save button — labour cost and notes are
+  // free text/number fields that need a deliberate save moment, but an
+  // added charge is already a complete, valid unit the moment it's typed.
+  function handleAddExtraCharge(description, amountRaw) {
+    const errorEl = document.getElementById('extra-charge-error');
+    const trimmedDesc = (description || '').trim();
+    const amount = parseFloat(amountRaw);
+    if (!trimmedDesc || !Number.isFinite(amount) || amount <= 0) {
+      errorEl.hidden = false;
+      return;
+    }
+    errorEl.hidden = true;
+    const job = findJob(state.currentJobId);
+    if (!job) return;
+    job.extraCharges.push({ id: generateId('chg'), description: trimmedDesc, amount: amount });
+    touchJob(job);
+    withPreservedInvoiceEditFields(render);
+  }
+
+  function handleRemoveExtraCharge(chargeId) {
+    const job = findJob(state.currentJobId);
+    if (!job) return;
+    job.extraCharges = job.extraCharges.filter(function (c) {
+      return c.id !== chargeId;
+    });
+    touchJob(job);
+    withPreservedInvoiceEditFields(render);
+  }
+
+  function handleSaveInvoiceEdit(labourCostRaw, notes) {
+    const job = findJob(state.currentJobId);
+    if (!job) return;
+    const labourCost = parseFloat(labourCostRaw);
+    if (Number.isFinite(labourCost) && labourCost >= 0) {
+      job.labourCost = labourCost;
+    }
+    job.invoiceNotes = (notes || '').trim();
+    touchJob(job);
+    ui.editingInvoice = false;
+    render();
+    showToast('Invoice updated.', true);
+  }
+
+  // Terminal action for this draft — once paid, the invoice locks (no
+  // Edit Invoice button renders) since there's no real "send" step to
+  // have happened before it; matches the "modifiable before we send it"
+  // intent by closing the edit window at the point the job is done.
+  function handleMarkPaid(jobId) {
+    const job = findJob(jobId);
+    if (!job) return;
+    job.customerPaid = true;
+    touchJob(job);
+    render();
+    showToast('Marked as paid.', true);
+  }
+
   function handlePay() {
     const job = findJob(state.currentJobId);
     if (!job) return;
@@ -1508,6 +1837,7 @@
     }
     const total = materialsCostFinal(job);
     job.status = 'wholesaler-selected';
+    job.materialsOrderedAt = Date.now();
     touchJob(job);
     render();
     showToast('Payment confirmed — ' + formatEUR(total) + ' charged (mock).', true);
@@ -1673,6 +2003,7 @@
           ui.viewingEstimate = false;
           ui.editingProfileDetails = false;
           ui.editingRates = false;
+          ui.editingInvoice = false;
           render();
           break;
         case 'create-job':
@@ -1745,7 +2076,10 @@
           if (!el.disabled) handlePay();
           break;
         case 'advance-status':
-          handleAdvance(el.getAttribute('data-next'), el.getAttribute('data-message'));
+          if (!el.disabled) handleAdvance(el.getAttribute('data-next'), el.getAttribute('data-message'));
+          break;
+        case 'toggle-received':
+          handleToggleReceived(el.getAttribute('data-material-id'));
           break;
         case 'select-trade': {
           const trade = el.getAttribute('data-trade');
@@ -1788,6 +2122,47 @@
           break;
         case 'remove-warehouse-item':
           handleRemoveWarehouseItem(el.getAttribute('data-item-id'));
+          break;
+        case 'edit-invoice':
+          ui.editingInvoice = true;
+          render();
+          break;
+        case 'cancel-edit-invoice':
+          ui.editingInvoice = false;
+          render();
+          break;
+        case 'save-invoice-edit':
+          handleSaveInvoiceEdit(
+            document.getElementById('invoice-labour-input').value,
+            document.getElementById('invoice-notes-input').value
+          );
+          break;
+        case 'add-extra-charge':
+          handleAddExtraCharge(
+            document.getElementById('extra-charge-desc').value,
+            document.getElementById('extra-charge-amount').value
+          );
+          break;
+        case 'remove-extra-charge':
+          handleRemoveExtraCharge(el.getAttribute('data-charge-id'));
+          break;
+        case 'mark-paid':
+          handleMarkPaid(el.getAttribute('data-job-id'));
+          break;
+        case 'download-pdf':
+          window.print();
+          break;
+        case 'use-example-address': {
+          const input = document.getElementById('job-address-input');
+          const pick = EXAMPLE_ADDRESSES[Math.floor(Math.random() * EXAMPLE_ADDRESSES.length)];
+          if (input) {
+            input.value = pick;
+            document.getElementById('job-address-error').hidden = true;
+          }
+          break;
+        }
+        case 'save-job-address':
+          handleSaveJobAddress(document.getElementById('job-address-input').value);
           break;
         case 'show-estimate':
           ui.viewingEstimate = true;

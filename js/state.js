@@ -10,10 +10,11 @@
  *   viewingProfile: boolean,
  *   jobs: [{
  *     id, jobType, jobTypeLabel, address, propertySize, labourCost,
- *     materials: [{ id, catalogId, name, unit, qty, options: [...] }],
- *     status,
+ *     materials: [{ id, catalogId, name, unit, qty, options: [...], received }],
+ *     status, customerPaid, materialsOrderedAt,
  *     wholesalerChoices: { [materialId]: wholesalerId },
  *     invoiceIncludesMaterials,
+ *     extraCharges: [{ id, description, amount }], invoiceNotes,
  *     createdAt, updatedAt
  *   }],
  *   profile: {
