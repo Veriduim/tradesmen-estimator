@@ -8,6 +8,7 @@
   --surface: #ffffff;
   --surface-alt: #f1f5f9;
   --border: #e2e8f0;
+  --border-strong: #cbd5e1;
   --ink: #1e293b;
   --ink-dim: #64748b;
   --ink-faint: #94a3b8;
@@ -241,13 +242,22 @@ main {
 .field select,
 .field textarea,
 .warehouse-add-row input {
-  background: var(--surface-alt);
-  border: 1px solid var(--border);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
   padding: 12px 14px;
   font-size: 14px;
   color: var(--ink);
   font-family: inherit;
+}
+.field input:disabled,
+.field select:disabled,
+.field textarea:disabled,
+.warehouse-add-row input:disabled {
+  background: var(--surface-alt);
+  border-color: var(--border);
+  color: var(--ink-faint);
+  cursor: not-allowed;
 }
 .field textarea {
   min-height: 72px;
@@ -789,7 +799,7 @@ button.checkbox {
 /* ===== Add-material search picker ===== */
 .search-input {
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
   padding: 12px 14px;
   font-size: 14px;

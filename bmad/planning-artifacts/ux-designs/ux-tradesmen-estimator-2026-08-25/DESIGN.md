@@ -4,12 +4,13 @@ name: TradesLine
 description: Multi-trade job estimator and invoicing tool. Calm, elevated operations-software aesthetic that reads as a polished business tool, not a consumer app or a rugged field app.
 status: draft
 created: 2026-08-25
-updated: 2026-09-05
+updated: 2026-09-09
 colors:
   bg: '#f5f7fa'
   surface: '#ffffff'
   surface-alt: '#f1f5f9'
   border: '#e2e8f0'
+  border-strong: '#cbd5e1'
   ink: '#1e293b'
   ink-dim: '#64748b'
   ink-faint: '#94a3b8'
@@ -79,6 +80,7 @@ TradesLine (formerly "Sparkline," and formerly scoped to electricians only) is a
 - **`bg` (`#f5f7fa`)** — app canvas. Cool, quiet, recedes behind content.
 - **`surface` (`#ffffff`)** / **`surface-alt` (`#f1f5f9`)** — cards and rows sit on `surface`; recessed elements (quantity steppers, chips) sit on `surface-alt`.
 - **`ink` / `ink-dim` / `ink-faint`** — three-step text hierarchy (primary copy / secondary copy / metadata & timestamps).
+- **`border` / `border-strong`** — `border` (`#e2e8f0`) is a hairline for cards, rows, and dividers; `border-strong` (`#cbd5e1`, new this draft) is for editable-field boundaries specifically, where `border` alone fell below reliable contrast against a white input. `border-strong` was already used ad hoc for the checkbox control's border before this draft named it as a token.
 - **`accent` (`#0d9488`, teal-600)** — the one chromatic color for primary actions, the current lifecycle stage, and links. Used identically regardless of the user's trade — no per-trade accent variants.
 - **`warn` (`#d97706`)** — lead-time / delivery risk flags only.
 - **`ok` (`#16a34a`)** — delivered / completed states only.
@@ -108,7 +110,7 @@ Two elevation levels only: flat (`surface-alt` recessed elements) and one soft c
 - **Status chip** — `{components.status-chip}`, used for wholesaler stock state, job-stage captions, and invoice status. Neutral/ok/warn variants only — never a fourth color.
 - **Primary button** — `{components.primary-button}`, teal fill, used for the one primary action per screen (Sign up / Sign in, + New Job, Confirm, etc.).
 - **Six-dot stepper** — unchanged visual pattern from the prior draft (filled = current, done = green, empty = pending); still spans all six lifecycle stages regardless of trade.
-- **Form field** — label (`label` role) above a `surface-alt` input, hairline `border` on focus-out, `danger`-toned inline error text below. New this draft: used for the Signup form's trade selector and address fields (see `EXPERIENCE.md.Component Patterns`).
+- **Form field** — label (`label` role) above a `surface` (white, not `surface-alt`) input with a `border-strong` boundary, `danger`-toned inline error text below. Revised this draft (competitive research, see `.memlog.md`): a `surface-alt` field on the `bg` canvas read as disabled/inactive rather than editable, and the prior hairline `border` fell below reliable contrast on white — both fixed by this token pair. Reserve `surface-alt` fields specifically for a `disabled` state, so disabled genuinely reads differently from editable. Applies everywhere a labeled field appears: login, Profile (display and edit mode), warehouse add-form, invoice edit.
 
 ## Do's and Don'ts
 
@@ -119,3 +121,4 @@ Two elevation levels only: flat (`surface-alt` recessed elements) and one soft c
 | Use `danger` red only for destructive confirmation | Use red for anything else (it was previously used ad hoc for the remove button; now formalized) |
 | System font stack, platform-rendered | Custom display webfont |
 | Flat two-level elevation | An elevation ramp implying a hierarchy of card "importance" |
+| White (`surface`) background + `border-strong` for any editable field | Gray (`surface-alt`) for an editable field — reserve gray for `disabled` fields specifically |
