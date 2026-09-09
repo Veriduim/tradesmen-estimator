@@ -100,8 +100,19 @@
 
       <div class="picker-section">
         <div class="picker-heading">Start a new job</div>
-        <div id="job-presets" class="preset-list"></div>
+        <button type="button" class="btn btn-primary btn-block" data-action="go-new-job">+ Start a Job</button>
       </div>
+    </section>
+
+    <!-- NEW JOB INTAKE -->
+    <section id="screen-new-job" class="screen" hidden>
+      <div class="topbar">
+        <button class="back-link" id="btn-back-from-new-job" type="button" data-action="leave-new-job">&larr; Back to jobs</button>
+        <div class="screen-title">New Job</div>
+        <div class="screen-sub">Customer &amp; job details</div>
+      </div>
+
+      <div id="new-job-body" class="job-detail-body"></div>
     </section>
 
     <!-- JOB DETAIL -->
@@ -109,6 +120,7 @@
       <div class="topbar">
         <button class="back-link" id="btn-back-to-jobs" type="button">&larr; Back to jobs</button>
         <div class="screen-title" id="job-detail-title"></div>
+        <div class="screen-sub" id="job-detail-customer"></div>
         <div class="screen-sub" id="job-detail-sub"></div>
       </div>
 

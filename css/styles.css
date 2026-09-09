@@ -276,16 +276,9 @@ main {
   gap: 8px;
   align-items: center;
 }
-.warehouse-add-row input#warehouse-add-name {
-  flex: 2;
-  min-width: 120px;
-}
-.warehouse-add-row input#warehouse-add-qty {
-  flex: 0 0 70px;
-}
-.warehouse-add-row input#warehouse-add-note {
-  flex: 2;
-  min-width: 120px;
+.warehouse-add-row input {
+  flex: 1;
+  min-width: 100px;
 }
 .field-error {
   margin-top: -10px;

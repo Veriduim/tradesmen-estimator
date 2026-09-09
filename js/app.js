@@ -9,7 +9,6 @@
   'use strict';
 
   const STATUS_LABELS = {
-    'job-details': 'Job Details',
     'materials-needed': 'Materials Needed',
     'wholesaler-selected': 'Pending Materials',
     'materials-delivered': 'Materials Delivered',
@@ -219,6 +218,12 @@
       return;
     }
 
+    if (state.startingNewJob) {
+      showScreen('screen-new-job');
+      document.getElementById('new-job-body').innerHTML = newJobIntakeHTML();
+      return;
+    }
+
     const job = state.currentJobId ? findJob(state.currentJobId) : null;
     if (state.currentJobId && !job) {
       // Stale reference (e.g. the job was just removed) — fall back safely.
@@ -248,7 +253,7 @@
   }
 
   function showScreen(id) {
-    ['screen-login', 'screen-job-picker', 'screen-job-detail', 'screen-profile'].forEach(function (sid) {
+    ['screen-login', 'screen-job-picker', 'screen-new-job', 'screen-job-detail', 'screen-profile'].forEach(function (sid) {
       document.getElementById(sid).hidden = sid !== id;
     });
   }
@@ -368,7 +373,7 @@
       '">' +
       '<div class="job-card-top">' +
       '<div class="job-addr">' +
-      escapeHtml(job.address) +
+      escapeHtml(job.customerName || job.address) +
       '</div>' +
       '<span class="status-badge ' +
       badgeClass +
@@ -433,7 +438,6 @@
   function renderJobPicker() {
     const jobsWrap = document.getElementById('existing-jobs');
     const countSub = document.getElementById('job-count-sub');
-    const presetsWrap = document.getElementById('job-presets');
 
     const jobs = state.jobs.slice().sort(function (a, b) {
       return (b.updatedAt || 0) - (a.updatedAt || 0);
@@ -444,7 +448,7 @@
     // Reflects the section split below rather than one combined "open
     // jobs" count, which reads as wrong once any job is pending/completed.
     if (!jobs.length) {
-      countSub.textContent = 'No jobs yet — pick a job type below to start one';
+      countSub.textContent = 'No jobs yet — start one below';
     } else {
       const parts = [];
       if (groups.active.length) parts.push(groups.active.length + ' active');
@@ -459,42 +463,94 @@
       jobSectionHTML('Pending Materials', groups.pendingMaterials) +
       jobSectionHTML('Pending Customer Payment', groups.pendingPayment) +
       jobSectionHTML('Completed', groups.completed);
+  }
 
+  // Trade-scoped preset cards — shared by the new-job intake screen (the
+  // only place they render now) and kept as its own function since the
+  // empty-state/trade-filter logic doesn't belong inlined into a bigger
+  // screen-render function.
+  function presetCardsHTML() {
     const tradePresets = JOB_PRESETS.filter(function (preset) {
       return preset.trade === state.session.trade;
     });
 
     if (!tradePresets.length) {
       const tradeLabel = TRADE_LABELS[state.session.trade] || state.session.trade;
-      presetsWrap.innerHTML =
-        '<p class="empty-state">No presets yet for ' + escapeHtml(tradeLabel) + ' — check back soon.</p>';
+      return '<p class="empty-state">No presets yet for ' + escapeHtml(tradeLabel) + ' — check back soon.</p>';
+    }
+
+    return tradePresets
+      .map(function (preset) {
+        return (
+          '<button type="button" class="preset-card" data-action="create-job" data-preset-id="' +
+          preset.id +
+          '">' +
+          '<div class="preset-title">' +
+          escapeHtml(preset.label) +
+          '</div>' +
+          '<div class="preset-desc">' +
+          escapeHtml(preset.description) +
+          '</div>' +
+          '<div class="preset-meta">' +
+          escapeHtml(preset.propertySize) +
+          ' · ' +
+          preset.materials.length +
+          ' materials · est. labour ' +
+          formatEUR(preset.labourCost) +
+          '</div>' +
+          '</button>'
+        );
+      })
+      .join('');
+  }
+
+  function newJobIntakeHTML() {
+    return (
+      '<label class="field">' +
+      '<span class="field-label">Customer name</span>' +
+      '<input type="text" id="new-job-customer-name" placeholder="e.g. John Murphy" />' +
+      '</label>' +
+      '<p class="field-error" id="new-job-customer-name-error" hidden>Enter the customer’s name to continue.</p>' +
+      '<label class="field">' +
+      '<span class="field-label">Customer address</span>' +
+      '<input type="text" id="new-job-customer-address" placeholder="e.g. 12 Maple Grove, Dublin 15" />' +
+      '</label>' +
+      '<p class="field-error" id="new-job-customer-address-error" hidden>Enter the customer’s address to continue.</p>' +
+      '<button type="button" class="btn btn-secondary" data-action="use-example-address">Use example address</button>' +
+      '<div class="picker-heading">Select a job type</div>' +
+      '<div class="preset-list">' +
+      presetCardsHTML() +
+      '</div>'
+    );
+  }
+
+  // Reads and validates the new-job intake screen's customer fields
+  // before creating anything — a job is never created half-filled-in.
+  // Runs on every preset-card click on that screen (the cards themselves
+  // carry no validation of their own).
+  function createJobFromPreset(presetId) {
+    const nameInput = document.getElementById('new-job-customer-name');
+    const addressInput = document.getElementById('new-job-customer-address');
+    const nameError = document.getElementById('new-job-customer-name-error');
+    const addressError = document.getElementById('new-job-customer-address-error');
+
+    const trimmedCustomerName = (nameInput.value || '').trim();
+    const trimmedAddress = (addressInput.value || '').trim();
+
+    nameError.hidden = true;
+    addressError.hidden = true;
+
+    if (!trimmedCustomerName) {
+      nameError.hidden = false;
+      nameInput.focus();
+      return;
+    }
+    if (!trimmedAddress) {
+      addressError.hidden = false;
+      addressInput.focus();
       return;
     }
 
-    presetsWrap.innerHTML = tradePresets.map(function (preset) {
-      return (
-        '<button type="button" class="preset-card" data-action="create-job" data-preset-id="' +
-        preset.id +
-        '">' +
-        '<div class="preset-title">' +
-        escapeHtml(preset.label) +
-        '</div>' +
-        '<div class="preset-desc">' +
-        escapeHtml(preset.description) +
-        '</div>' +
-        '<div class="preset-meta">' +
-        escapeHtml(preset.propertySize) +
-        ' · ' +
-        preset.materials.length +
-        ' materials · est. labour ' +
-        formatEUR(preset.labourCost) +
-        '</div>' +
-        '</button>'
-      );
-    }).join('');
-  }
-
-  function createJobFromPreset(presetId) {
     const preset = JOB_PRESETS.find(function (p) {
       return p.id === presetId;
     });
@@ -519,11 +575,12 @@
       jobType: preset.id,
       jobTypeLabel: preset.label,
       trade: preset.trade,
-      address: '', // captured on the job-details screen, not copied from the preset
+      customerName: trimmedCustomerName,
+      address: trimmedAddress,
       propertySize: preset.propertySize,
       labourCost: preset.labourCost,
       materials: materials,
-      status: 'job-details',
+      status: 'materials-needed',
       wholesalerChoices: {},
       invoiceIncludesMaterials: true,
       customerPaid: false,
@@ -535,27 +592,13 @@
 
     state.jobs.push(job);
     state.currentJobId = job.id;
+    state.startingNewJob = false;
     ui.addItemOpen = false;
     ui.addItemQuery = '';
     ui.addItemHighlightIndex = 0;
     ui.openWholesalerFor = null;
     ui.qtyNotice = null;
     ui.viewingEstimate = false;
-    render();
-  }
-
-  function handleSaveJobAddress(address) {
-    const job = findJob(state.currentJobId);
-    if (!job) return;
-    const trimmed = (address || '').trim();
-    if (!trimmed) {
-      document.getElementById('job-address-error').hidden = false;
-      document.getElementById('job-address-input').focus();
-      return;
-    }
-    job.address = trimmed;
-    job.status = 'materials-needed';
-    touchJob(job);
     render();
   }
 
@@ -711,22 +754,30 @@
       ? materialResultsHTML(matchIds, ui.warehouseAddQuery.trim(), highlightIndex, 'warehouse-pick-material', 'No materials found.')
       : '';
 
+    // Stacked full-width fields (the same .field pattern used everywhere
+    // else) inside one .add-item-form card, replacing the old cramped
+    // horizontal row — that row's fixed-width qty/note/button squeeze
+    // was the reported "messy on phone" layout.
     return (
       '<div class="picker-heading">Your Materials Warehouse</div>' +
-      (items.length ? rows : '<p class="empty-state">No leftover materials logged yet.</p>') +
       '<div class="add-item-form">' +
       '<input type="text" id="warehouse-search" class="search-input" placeholder="Search materials to log…" ' +
       'aria-label="Search materials to log" value="' +
       escapeHtml(ui.warehouseAddQuery || '') +
       '" autocomplete="off">' +
       resultsHTML +
+      '<label class="field">' +
+      '<span class="field-label">Quantity</span>' +
+      '<input type="number" id="warehouse-add-qty" min="1" step="1" value="1" />' +
+      '</label>' +
+      '<label class="field">' +
+      '<span class="field-label">Note (optional)</span>' +
+      '<input type="text" id="warehouse-add-note" placeholder="e.g. leftover from a job" />' +
+      '</label>' +
+      '<p class="field-error" id="warehouse-add-error" hidden>Pick a material from the search results above.</p>' +
+      '<button type="button" class="btn btn-primary btn-block" data-action="add-warehouse-item">Add to warehouse</button>' +
       '</div>' +
-      '<div class="warehouse-add-row">' +
-      '<input type="number" id="warehouse-add-qty" min="1" step="1" value="1" placeholder="Qty" />' +
-      '<input type="text" id="warehouse-add-note" placeholder="Note (optional)" />' +
-      '<button type="button" class="btn btn-secondary" data-action="add-warehouse-item">Add</button>' +
-      '</div>' +
-      '<p class="field-error" id="warehouse-add-error" hidden>Pick a material from the search results above.</p>'
+      (items.length ? rows : '<p class="empty-state">No leftover materials logged yet.</p>')
     );
   }
 
@@ -882,34 +933,15 @@
     '22 Orchard Close, Waterford',
   ];
 
-  function jobDetailsHTML(job) {
-    return (
-      '<label class="field">' +
-      '<span class="field-label">Job address</span>' +
-      '<input type="text" id="job-address-input" placeholder="e.g. 12 Maple Grove, Dublin 15" value="' +
-      escapeHtml(job.address) +
-      '" /></label>' +
-      '<p class="field-error" id="job-address-error" hidden>Enter an address to continue.</p>' +
-      '<button type="button" class="btn btn-secondary" data-action="use-example-address">Use example address</button>' +
-      '<div class="action-bar">' +
-      '<button type="button" class="btn btn-primary btn-block" data-action="save-job-address">Continue</button>' +
-      '</div>'
-    );
-  }
-
   function renderJobDetail(job) {
     document.getElementById('job-detail-title').textContent = job.jobTypeLabel;
-    document.getElementById('job-detail-sub').textContent = job.address
-      ? job.address + ' · ' + job.propertySize
-      : job.propertySize;
+    document.getElementById('job-detail-customer').textContent = job.customerName ? 'For ' + job.customerName : '';
+    document.getElementById('job-detail-sub').textContent = job.address + ' · ' + job.propertySize;
     document.getElementById('job-stepper').innerHTML = stepperHTML(job.status);
     document.getElementById('job-stage-caption').textContent = stageCaption(job.status);
 
     const body = document.getElementById('job-detail-body');
     switch (job.status) {
-      case 'job-details':
-        body.innerHTML = jobDetailsHTML(job);
-        break;
       case 'materials-needed':
         body.innerHTML = ui.viewingEstimate ? estimateInvoiceHTML(job) : materialsNeededHTML(job);
         break;
@@ -1017,7 +1049,6 @@
           '">' +
           '<div class="mat-top">' +
           '<div class="mat-left">' +
-          '<div class="checkbox"></div>' +
           '<div>' +
           '<div class="mat-name">' +
           escapeHtml(m.name) +
@@ -1098,6 +1129,9 @@
       formatEUR(estimateJobTotal(job)) +
       '</button>' +
       payNote +
+      '<button type="button" class="btn btn-danger btn-block" data-action="cancel-job" data-job-id="' +
+      job.id +
+      '">Cancel job — customer declined</button>' +
       '</div>'
     );
   }
@@ -1485,12 +1519,12 @@
       '<div class="invoice-header">' +
       '<div>' +
       '<div class="invoice-job">' +
-      escapeHtml(job.address) +
+      escapeHtml(job.customerName || job.jobTypeLabel) +
       '</div>' +
       '<div class="invoice-job-sub">' +
-      escapeHtml(job.jobTypeLabel) +
+      escapeHtml(job.address) +
       ' · ' +
-      escapeHtml(job.propertySize) +
+      escapeHtml(job.jobTypeLabel) +
       '</div>' +
       '</div>' +
       '<span class="invoice-badge' +
@@ -1648,12 +1682,12 @@
       '<div class="invoice-header">' +
       '<div>' +
       '<div class="invoice-job">' +
-      escapeHtml(job.address) +
+      escapeHtml(job.customerName || job.jobTypeLabel) +
       '</div>' +
       '<div class="invoice-job-sub">' +
-      escapeHtml(job.jobTypeLabel) +
+      escapeHtml(job.address) +
       ' · ' +
-      escapeHtml(job.propertySize) +
+      escapeHtml(job.jobTypeLabel) +
       '</div>' +
       '</div>' +
       '<span class="invoice-badge badge-estimate">Estimate</span>' +
@@ -2016,6 +2050,11 @@
   function handleLogout() {
     state.session = null;
     state.currentJobId = null;
+    // Pre-existing gap, fixed while touching this area: neither of these
+    // was reset on logout, so logging back in could silently land on
+    // Profile or the new-job screen instead of the dashboard.
+    state.viewingProfile = false;
+    state.startingNewJob = false;
     render();
   }
 
@@ -2234,16 +2273,21 @@
           window.print();
           break;
         case 'use-example-address': {
-          const input = document.getElementById('job-address-input');
+          const input = document.getElementById('new-job-customer-address');
           const pick = EXAMPLE_ADDRESSES[Math.floor(Math.random() * EXAMPLE_ADDRESSES.length)];
           if (input) {
             input.value = pick;
-            document.getElementById('job-address-error').hidden = true;
+            document.getElementById('new-job-customer-address-error').hidden = true;
           }
           break;
         }
-        case 'save-job-address':
-          handleSaveJobAddress(document.getElementById('job-address-input').value);
+        case 'go-new-job':
+          state.startingNewJob = true;
+          render();
+          break;
+        case 'leave-new-job':
+          state.startingNewJob = false;
+          render();
           break;
         case 'show-estimate':
           ui.viewingEstimate = true;

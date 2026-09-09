@@ -8,8 +8,9 @@
  *   session: { name, trade, region, email, businessName, tradeRegNumber, loginAt } | null,
  *   currentJobId: string | null,
  *   viewingProfile: boolean,
+ *   startingNewJob: boolean,
  *   jobs: [{
- *     id, jobType, jobTypeLabel, address, propertySize, labourCost,
+ *     id, jobType, jobTypeLabel, customerName, address, propertySize, labourCost,
  *     materials: [{ id, catalogId, name, unit, qty, options: [...], received }],
  *     status, customerPaid, materialsOrderedAt,
  *     wholesalerChoices: { [materialId]: wholesalerId },
@@ -30,8 +31,14 @@
 // from a previous visit resurfacing.
 const STORAGE_KEY = 'sparkline:jobflow:v1';
 
+// 'job-details' removed (was index 0): the new-job intake screen now
+// collects customer name/address/job-type *before* a job object exists,
+// so every job is created directly at 'materials-needed' — keeping the
+// old stage would have every job's stepper show a phantom "already
+// done" first dot nobody actually passed through. stepperHTML/
+// stageCaption derive "Step N of {STATUS_ORDER.length}" dynamically, so
+// removing an entry needed no other numbering changes.
 const STATUS_ORDER = [
-  'job-details',
   'materials-needed',
   'wholesaler-selected',
   'materials-delivered',
@@ -49,6 +56,7 @@ function defaultState() {
     session: null,
     currentJobId: null,
     viewingProfile: false,
+    startingNewJob: false,
     jobs: [],
     profile: { labourRatePerHour: null, labourRatePerJob: null, pendingReview: false, warehouse: [] },
   };
