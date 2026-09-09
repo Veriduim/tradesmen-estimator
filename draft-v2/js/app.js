@@ -1059,7 +1059,12 @@
     const chosen = chosenOption(job, material);
     const isOpen = ui.openWholesalerFor === material.id;
 
-    let html = '<div class="wholesaler-row">';
+    // no-checkbox: unlike wholesaler-selected's row (which still has the
+    // received-toggle checkbox in .mat-left and needs this block indented
+    // to line up under the text beside it), this screen's decorative
+    // checkbox was removed — so this block should sit flush left and use
+    // the material card's full width instead of inheriting that indent.
+    let html = '<div class="wholesaler-row no-checkbox">';
     if (chosen) {
       const stockText =
         chosen.stock === 'in-stock' ? 'in stock' : chosen.leadDays + '-day lead';
@@ -1088,7 +1093,7 @@
     }
 
     if (isOpen) {
-      html += '<div class="wholesaler-options">';
+      html += '<div class="wholesaler-options no-checkbox">';
       material.options.forEach(function (opt) {
         const selected = job.wholesalerChoices[material.id] === opt.wholesalerId;
         const stockText =

@@ -706,6 +706,13 @@ button.checkbox {
   gap: 8px;
   flex-wrap: wrap;
 }
+/* Materials Needed's vendor-choice block: no checkbox on this screen to
+   line up under, so it sits flush left and uses the material card's full
+   width instead of the 30px indent wholesaler-selected still needs. */
+.wholesaler-row.no-checkbox,
+.wholesaler-options.no-checkbox {
+  padding-left: 0;
+}
 .chip {
   background: var(--surface-alt);
   border-radius: 999px;
