@@ -45,6 +45,9 @@
     editingProfileDetails: false, // toggles the Profile identity section (name/business/trade reg) into edit mode
     editingRates: false, // toggles the Profile labour-rate section into edit mode
     editingInvoice: false, // toggles the final-invoice screen into edit mode
+    warehouseAddQuery: '', // live search-as-you-type text for the warehouse's material picker
+    warehouseAddHighlightIndex: 0, // keyboard-roving-highlight index into the current filtered results
+    warehouseAddCatalogId: null, // set once a search result is picked, before "Add" is clicked
   };
 
   let toastTimer = null;
@@ -669,7 +672,11 @@
   // Personal leftover-materials list — deliberately separate from
   // MATERIAL_CATALOG (no catalogId/unit-price/trade link): a flat visual
   // inventory, not tied to wholesaler pricing or a specific job.
-  function warehouseSectionHTML() {
+  // Split from warehouseSectionHTML so refreshWarehouseSection() can
+  // update just this container's contents while typing in the search
+  // field, without touching (and losing focus/cursor in) the identity,
+  // rates, or jobs sections that also live in #profile-body.
+  function warehouseSectionInnerHTML() {
     const items = state.profile.warehouse;
     const rows = items
       .map(function (item) {
@@ -679,6 +686,8 @@
           escapeHtml(item.name) +
           ' <span class="line-item-qty">(' +
           item.qty +
+          ' ' +
+          escapeHtml(item.unit || '') +
           ')</span>' +
           (item.note ? ' <span class="line-item-qty">— ' + escapeHtml(item.note) + '</span>' : '') +
           '</span>' +
@@ -690,39 +699,75 @@
       })
       .join('');
 
+    // Only show the results dropdown while actively typing and before a
+    // pick is confirmed — an always-expanded full catalog list here (the
+    // job-materials picker's behavior when opened) would just be visual
+    // noise on a page that has no explicit "open picker" step.
+    const trimmedQuery = ui.warehouseAddQuery.trim().toLowerCase();
+    const matchIds = ui.warehouseAddCatalogId ? [] : filteredWarehouseResultIds(trimmedQuery);
+    const highlightIndex = Math.min(ui.warehouseAddHighlightIndex || 0, Math.max(matchIds.length - 1, 0));
+    const showResults = !ui.warehouseAddCatalogId && trimmedQuery.length > 0;
+    const resultsHTML = showResults
+      ? materialResultsHTML(matchIds, ui.warehouseAddQuery.trim(), highlightIndex, 'warehouse-pick-material', 'No materials found.')
+      : '';
+
     return (
       '<div class="picker-heading">Your Materials Warehouse</div>' +
       (items.length ? rows : '<p class="empty-state">No leftover materials logged yet.</p>') +
+      '<div class="add-item-form">' +
+      '<input type="text" id="warehouse-search" class="search-input" placeholder="Search materials to log…" ' +
+      'aria-label="Search materials to log" value="' +
+      escapeHtml(ui.warehouseAddQuery || '') +
+      '" autocomplete="off">' +
+      resultsHTML +
+      '</div>' +
       '<div class="warehouse-add-row">' +
-      '<input type="text" id="warehouse-add-name" placeholder="Material name" />' +
       '<input type="number" id="warehouse-add-qty" min="1" step="1" value="1" placeholder="Qty" />' +
       '<input type="text" id="warehouse-add-note" placeholder="Note (optional)" />' +
       '<button type="button" class="btn btn-secondary" data-action="add-warehouse-item">Add</button>' +
       '</div>' +
-      '<p class="field-error" id="warehouse-add-error" hidden>Enter a material name to add it.</p>'
+      '<p class="field-error" id="warehouse-add-error" hidden>Pick a material from the search results above.</p>'
     );
   }
 
-  function handleAddWarehouseItem() {
-    const nameInput = document.getElementById('warehouse-add-name');
-    const qtyInput = document.getElementById('warehouse-add-qty');
-    const noteInput = document.getElementById('warehouse-add-note');
-    const errorEl = document.getElementById('warehouse-add-error');
+  function warehouseSectionHTML() {
+    return '<div id="warehouse-section">' + warehouseSectionInnerHTML() + '</div>';
+  }
 
-    const trimmedName = (nameInput.value || '').trim();
-    if (!trimmedName) {
+  // Rebuilds just the warehouse container (not the whole Profile body) so
+  // typing in the search field doesn't lose focus/cursor position — same
+  // pattern as refreshJobDetailBody for the job-materials search.
+  function refreshWarehouseSection() {
+    const container = document.getElementById('warehouse-section');
+    if (!container) return;
+    container.innerHTML = warehouseSectionInnerHTML();
+  }
+
+  function handleAddWarehouseItem() {
+    const errorEl = document.getElementById('warehouse-add-error');
+    const cat = ui.warehouseAddCatalogId ? MATERIAL_CATALOG[ui.warehouseAddCatalogId] : null;
+    if (!cat) {
       errorEl.hidden = false;
-      nameInput.focus();
       return;
     }
+    errorEl.hidden = true;
 
+    const qtyInput = document.getElementById('warehouse-add-qty');
+    const noteInput = document.getElementById('warehouse-add-note');
     const qty = parseInt(qtyInput.value, 10);
+
     state.profile.warehouse.push({
       id: generateId('wh'),
-      name: trimmedName,
+      catalogId: ui.warehouseAddCatalogId,
+      name: cat.name,
+      unit: cat.unit,
       qty: Number.isFinite(qty) && qty > 0 ? qty : 1,
       note: (noteInput.value || '').trim(),
     });
+
+    ui.warehouseAddQuery = '';
+    ui.warehouseAddCatalogId = null;
+    ui.warehouseAddHighlightIndex = 0;
     renderProfile();
   }
 
@@ -986,6 +1031,14 @@
           '</div>' +
           '</div>' +
           '<div class="mat-actions">' +
+          (canRemove
+            ? '<button type="button" class="mat-remove" data-action="remove-material" data-material-id="' +
+              m.id +
+              '">Remove</button>'
+            : '<button type="button" class="mat-remove" data-action="remove-material" data-material-id="' +
+              m.id +
+              '" disabled title="A job needs at least one material">Remove</button>')
+          +
           '<div class="qty-box">' +
           '<button type="button" data-action="qty-dec" data-material-id="' +
           m.id +
@@ -1001,14 +1054,6 @@
           m.id +
           '">+</button>' +
           '</div>' +
-          (canRemove
-            ? '<button type="button" class="mat-remove" data-action="remove-material" data-material-id="' +
-              m.id +
-              '">Remove</button>'
-            : '<button type="button" class="mat-remove" data-action="remove-material" data-material-id="' +
-              m.id +
-              '" disabled title="A job needs at least one material">Remove</button>')
-          +
           '</div>' +
           '</div>' +
           materialWholesalerBlockHTML(job, m) +
@@ -1057,18 +1102,16 @@
     );
   }
 
-  // Catalog ids not yet on this job, matching the query (case-insensitive
-  // substring), name-starts-with matches sorted first. Shared by the
-  // rendered picker and the keyboard-nav handler so both agree on order.
-  function filteredMaterialResultIds(job, query) {
-    const alreadyAddedCatalogIds = {};
-    job.materials.forEach(function (m) {
-      if (m.catalogId) alreadyAddedCatalogIds[m.catalogId] = true;
-    });
-
+  // Catalog ids for a trade matching the query (case-insensitive
+  // substring), name-starts-with matches sorted first, optionally
+  // excluding a set of ids. Shared base for every catalog search picker
+  // in the app (job materials, personal warehouse) so match/sort order
+  // can never silently diverge between them.
+  function filterCatalogIds(trade, query, excludeIds) {
+    const exclude = excludeIds || {};
     const ids = Object.keys(MATERIAL_CATALOG).filter(function (id) {
-      if (MATERIAL_CATALOG[id].trade !== job.trade) return false;
-      if (alreadyAddedCatalogIds[id]) return false;
+      if (MATERIAL_CATALOG[id].trade !== trade) return false;
+      if (exclude[id]) return false;
       if (!query) return true;
       return MATERIAL_CATALOG[id].name.toLowerCase().indexOf(query) !== -1;
     });
@@ -1082,17 +1125,28 @@
     });
   }
 
-  // Search-as-you-type picker restricted to MATERIAL_CATALOG — the only
-  // way to add a material, so every addable item still carries real
-  // per-wholesaler pricing. No freeform name/price entry.
-  function addItemFormHTML(job) {
-    const query = (ui.addItemQuery || '').trim().toLowerCase();
-    const matchIds = filteredMaterialResultIds(job, query);
-    const highlightIndex = Math.min(ui.addItemHighlightIndex || 0, Math.max(matchIds.length - 1, 0));
+  // Catalog ids not yet on this job, matching the query. Shared by the
+  // rendered picker and the keyboard-nav handler so both agree on order.
+  function filteredMaterialResultIds(job, query) {
+    const alreadyAddedCatalogIds = {};
+    job.materials.forEach(function (m) {
+      if (m.catalogId) alreadyAddedCatalogIds[m.catalogId] = true;
+    });
+    return filterCatalogIds(job.trade, query, alreadyAddedCatalogIds);
+  }
 
-    let resultsHTML;
+  // Same search, for the personal materials warehouse — no exclusion:
+  // unlike a job (one row per material), having leftovers of the same
+  // catalog item logged more than once (from different jobs) is normal.
+  function filteredWarehouseResultIds(query) {
+    return filterCatalogIds(state.session.trade, query, null);
+  }
+
+  // Shared results-dropdown markup for any catalog search picker —
+  // `pickAction` is the data-action the click delegate dispatches on.
+  function materialResultsHTML(matchIds, query, highlightIndex, pickAction, emptyMessage) {
     if (matchIds.length) {
-      resultsHTML =
+      return (
         '<div class="material-results" aria-live="polite">' +
         matchIds
           .map(function (id, i) {
@@ -1101,7 +1155,9 @@
             return (
               '<button type="button" class="material-result' +
               (i === highlightIndex ? ' highlighted' : '') +
-              '" data-action="add-item-pick" data-catalog-id="' +
+              '" data-action="' +
+              pickAction +
+              '" data-catalog-id="' +
               id +
               '">' +
               '<div class="material-result-name">' +
@@ -1115,15 +1171,23 @@
             );
           })
           .join('') +
-        '</div>';
-    } else if (query) {
-      resultsHTML =
-        '<p class="material-results-empty" aria-live="polite">No materials match "' +
-        escapeHtml(ui.addItemQuery.trim()) +
-        '".</p>';
-    } else {
-      resultsHTML = '<p class="material-results-empty" aria-live="polite">All materials already added.</p>';
+        '</div>'
+      );
     }
+    if (query) {
+      return '<p class="material-results-empty" aria-live="polite">No materials match "' + escapeHtml(query) + '".</p>';
+    }
+    return '<p class="material-results-empty" aria-live="polite">' + escapeHtml(emptyMessage) + '</p>';
+  }
+
+  // Search-as-you-type picker restricted to MATERIAL_CATALOG — the only
+  // way to add a material, so every addable item still carries real
+  // per-wholesaler pricing. No freeform name/price entry.
+  function addItemFormHTML(job) {
+    const query = (ui.addItemQuery || '').trim().toLowerCase();
+    const matchIds = filteredMaterialResultIds(job, query);
+    const highlightIndex = Math.min(ui.addItemHighlightIndex || 0, Math.max(matchIds.length - 1, 0));
+    const resultsHTML = materialResultsHTML(matchIds, ui.addItemQuery.trim(), highlightIndex, 'add-item-pick', 'All materials already added.');
 
     return (
       '<div class="add-item-form">' +
@@ -2004,6 +2068,9 @@
           ui.editingProfileDetails = false;
           ui.editingRates = false;
           ui.editingInvoice = false;
+          ui.warehouseAddQuery = '';
+          ui.warehouseAddCatalogId = null;
+          ui.warehouseAddHighlightIndex = 0;
           render();
           break;
         case 'create-job':
@@ -2123,6 +2190,20 @@
         case 'remove-warehouse-item':
           handleRemoveWarehouseItem(el.getAttribute('data-item-id'));
           break;
+        case 'warehouse-pick-material': {
+          const catalogId = el.getAttribute('data-catalog-id');
+          const cat = MATERIAL_CATALOG[catalogId];
+          if (cat) {
+            ui.warehouseAddCatalogId = catalogId;
+            ui.warehouseAddQuery = cat.name;
+            ui.warehouseAddHighlightIndex = 0;
+            document.getElementById('warehouse-add-error').hidden = true;
+          }
+          refreshWarehouseSection();
+          const searchInput = document.getElementById('warehouse-search');
+          if (searchInput) searchInput.focus();
+          break;
+        }
         case 'edit-invoice':
           ui.editingInvoice = true;
           render();
@@ -2176,6 +2257,9 @@
           state.viewingProfile = false;
           ui.editingProfileDetails = false;
           ui.editingRates = false;
+          ui.warehouseAddQuery = '';
+          ui.warehouseAddCatalogId = null;
+          ui.warehouseAddHighlightIndex = 0;
           render();
           break;
         default:
@@ -2220,6 +2304,22 @@
         const resultsList = document.querySelector('.material-results');
         if (resultsList && prevScrollTop !== undefined) resultsList.scrollTop = prevScrollTop;
       }
+      if (e.target && e.target.id === 'warehouse-search') {
+        ui.warehouseAddQuery = e.target.value;
+        ui.warehouseAddHighlightIndex = 0;
+        ui.warehouseAddCatalogId = null; // typing again re-opens the search, discarding any prior pick
+        refreshWarehouseSection();
+        const input = document.getElementById('warehouse-search');
+        if (input) {
+          input.focus();
+          const pos = input.value.length;
+          try {
+            input.setSelectionRange(pos, pos);
+          } catch (err) {
+            // Some input types don't support selection ranges — harmless.
+          }
+        }
+      }
     });
 
     document.body.addEventListener('keydown', function (e) {
@@ -2248,6 +2348,40 @@
         e.preventDefault();
         const pickIndex = Math.min(ui.addItemHighlightIndex || 0, matchIds.length - 1);
         handleAddItemPick(matchIds[pickIndex]);
+      }
+    });
+
+    document.body.addEventListener('keydown', function (e) {
+      if (!e.target || e.target.id !== 'warehouse-search') return;
+      const query = (ui.warehouseAddQuery || '').trim().toLowerCase();
+      const matchIds = ui.warehouseAddCatalogId ? [] : filteredWarehouseResultIds(query);
+      if (!matchIds.length) return;
+
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        ui.warehouseAddHighlightIndex = Math.min((ui.warehouseAddHighlightIndex || 0) + 1, matchIds.length - 1);
+        refreshWarehouseSection();
+        const afterDown = document.getElementById('warehouse-search');
+        if (afterDown) afterDown.focus();
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        ui.warehouseAddHighlightIndex = Math.max((ui.warehouseAddHighlightIndex || 0) - 1, 0);
+        refreshWarehouseSection();
+        const afterUp = document.getElementById('warehouse-search');
+        if (afterUp) afterUp.focus();
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        const pickIndex = Math.min(ui.warehouseAddHighlightIndex || 0, matchIds.length - 1);
+        const catalogId = matchIds[pickIndex];
+        const cat = MATERIAL_CATALOG[catalogId];
+        if (cat) {
+          ui.warehouseAddCatalogId = catalogId;
+          ui.warehouseAddQuery = cat.name;
+          ui.warehouseAddHighlightIndex = 0;
+        }
+        refreshWarehouseSection();
+        const afterEnter = document.getElementById('warehouse-search');
+        if (afterEnter) afterEnter.focus();
       }
     });
 

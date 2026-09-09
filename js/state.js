@@ -20,7 +20,7 @@
  *   profile: {
  *     labourRatePerHour: number | null, labourRatePerJob: number | null,
  *     pendingReview: boolean,
- *     warehouse: [{ id, name, qty, note }]
+ *     warehouse: [{ id, catalogId, name, unit, qty, note }]
  *   }
  * }
  */
