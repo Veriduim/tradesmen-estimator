@@ -506,17 +506,35 @@
 
   function newJobIntakeHTML() {
     return (
+      '<div class="new-job-form">' +
       '<label class="field">' +
       '<span class="field-label">Customer name</span>' +
       '<input type="text" id="new-job-customer-name" placeholder="e.g. John Murphy" />' +
       '</label>' +
       '<p class="field-error" id="new-job-customer-name-error" hidden>Enter the customer’s name to continue.</p>' +
+      '<button type="button" class="btn btn-secondary" data-action="use-example-name">Use example name</button>' +
+
+      '<div class="field-group-label">Customer address</div>' +
       '<label class="field">' +
-      '<span class="field-label">Customer address</span>' +
-      '<input type="text" id="new-job-customer-address" placeholder="e.g. 12 Maple Grove, Dublin 15" />' +
+      '<span class="field-label">Address line 1</span>' +
+      '<input type="text" id="new-job-address-line1" placeholder="e.g. 12 Maple Grove" />' +
       '</label>' +
+      '<label class="field">' +
+      '<span class="field-label">Address line 2 (optional)</span>' +
+      '<input type="text" id="new-job-address-line2" placeholder="e.g. Dublin 15" />' +
+      '</label>' +
+      '<div class="field-row">' +
+      '<label class="field"><span class="field-label">County</span>' +
+      '<select id="new-job-address-county">' + countyOptionsHTML() + '</select></label>' +
+      '<label class="field"><span class="field-label">Eircode</span>' +
+      '<input type="text" id="new-job-address-eircode" placeholder="e.g. D15 XY12" /></label>' +
+      '</div>' +
+      '<label class="field"><span class="field-label">Country</span>' +
+      '<select id="new-job-address-country">' + countryOptionsHTML() + '</select></label>' +
       '<p class="field-error" id="new-job-customer-address-error" hidden>Enter the customer’s address to continue.</p>' +
       '<button type="button" class="btn btn-secondary" data-action="use-example-address">Use example address</button>' +
+      '</div>' +
+
       '<div class="picker-heading">Select a job type</div>' +
       '<div class="preset-list">' +
       presetCardsHTML() +
@@ -530,12 +548,20 @@
   // carry no validation of their own).
   function createJobFromPreset(presetId) {
     const nameInput = document.getElementById('new-job-customer-name');
-    const addressInput = document.getElementById('new-job-customer-address');
+    const line1Input = document.getElementById('new-job-address-line1');
+    const line2Input = document.getElementById('new-job-address-line2');
+    const countySelect = document.getElementById('new-job-address-county');
+    const eircodeInput = document.getElementById('new-job-address-eircode');
+    const countrySelect = document.getElementById('new-job-address-country');
     const nameError = document.getElementById('new-job-customer-name-error');
     const addressError = document.getElementById('new-job-customer-address-error');
 
     const trimmedCustomerName = (nameInput.value || '').trim();
-    const trimmedAddress = (addressInput.value || '').trim();
+    const trimmedLine1 = (line1Input.value || '').trim();
+    const trimmedLine2 = (line2Input.value || '').trim();
+    const county = countySelect.value;
+    const trimmedEircode = (eircodeInput.value || '').trim();
+    const country = countrySelect.value;
 
     nameError.hidden = true;
     addressError.hidden = true;
@@ -545,11 +571,29 @@
       nameInput.focus();
       return;
     }
-    if (!trimmedAddress) {
+    if (!trimmedLine1) {
       addressError.hidden = false;
-      addressInput.focus();
+      line1Input.focus();
       return;
     }
+    if (!county) {
+      addressError.hidden = false;
+      countySelect.focus();
+      return;
+    }
+    if (!trimmedEircode) {
+      addressError.hidden = false;
+      eircodeInput.focus();
+      return;
+    }
+
+    const trimmedAddress = formatAddress({
+      line1: trimmedLine1,
+      line2: trimmedLine2,
+      county: county,
+      eircode: trimmedEircode,
+      country: country,
+    });
 
     const preset = JOB_PRESETS.find(function (p) {
       return p.id === presetId;
@@ -922,16 +966,58 @@
   // Job detail screen — shell
   // ---------------------------------------------------------------------
 
-  // Small flat pool for the "Use example address" quick-fill — not
+  // Small flat pools for the "Use example" quick-fills — not
   // region-matched to the signed-in user, deliberately simple per this
-  // pass's scope (flow/visualization, not real address data).
-  const EXAMPLE_ADDRESSES = [
-    '45 Elm Court, Dublin 8',
-    '9 Riverside Terrace, Cork',
-    '3 Parkview Grove, Galway',
-    '17 Meadowbrook Lane, Limerick',
-    '22 Orchard Close, Waterford',
+  // pass's scope (flow/visualization, not real address data). Eircodes
+  // are plausibly-shaped, not real/valid ones.
+  const EXAMPLE_CUSTOMER_NAMES = [
+    'John Murphy', 'Siobhán O’Brien', 'Aoife Kelly', 'Cian Byrne',
+    'Niamh Walsh', 'Darragh Ryan', 'Éabha Connolly', 'Seán Doyle',
   ];
+  const EXAMPLE_ADDRESSES = [
+    { line1: '45 Elm Court', line2: '', county: 'Dublin', eircode: 'D08 X2C9', country: 'Ireland' },
+    { line1: '9 Riverside Terrace', line2: 'Blackrock', county: 'Cork', eircode: 'T12 A1B2', country: 'Ireland' },
+    { line1: '3 Parkview Grove', line2: '', county: 'Galway', eircode: 'H91 P3D4', country: 'Ireland' },
+    { line1: '17 Meadowbrook Lane', line2: '', county: 'Limerick', eircode: 'V94 E5F6', country: 'Ireland' },
+    { line1: '22 Orchard Close', line2: 'Ferrybank', county: 'Waterford', eircode: 'X91 G7H8', country: 'Ireland' },
+  ];
+  const EXAMPLE_BUSINESS_ADDRESSES = [
+    { line1: 'Unit 4, Ashgrove Industrial Estate', line2: '', county: 'Dublin', eircode: 'D11 P8T6', country: 'Ireland' },
+    { line1: '12 Distillery Road', line2: '', county: 'Cork', eircode: 'T23 R5K1', country: 'Ireland' },
+    { line1: 'Unit 9, Liosban Business Park', line2: '', county: 'Galway', eircode: 'H91 D6F2', country: 'Ireland' },
+    { line1: '8 Raheen Business Park', line2: '', county: 'Limerick', eircode: 'V94 N3W7', country: 'Ireland' },
+  ];
+
+  // Turns a structured address (as captured by the intake/sign-up forms)
+  // into the single display string the rest of the app already expects
+  // job.address / session.businessAddress-as-shown to be — every existing
+  // consumer (job card, invoice, estimate, topbars) stays untouched.
+  // Country is only appended when it isn't Ireland (the overwhelming
+  // default), matching how a real Irish address is normally written.
+  function formatAddress(parts) {
+    const bits = [parts.line1];
+    if (parts.line2) bits.push(parts.line2);
+    bits.push('Co. ' + parts.county);
+    bits.push(parts.eircode);
+    const line = bits.join(', ');
+    return parts.country && parts.country !== 'Ireland' ? line + ', ' + parts.country : line;
+  }
+
+  function countyOptionsHTML(selected) {
+    return (
+      '<option value="">Choose county</option>' +
+      IRISH_COUNTIES.map(function (c) {
+        return '<option value="' + c + '"' + (c === selected ? ' selected' : '') + '>' + c + '</option>';
+      }).join('')
+    );
+  }
+
+  function countryOptionsHTML(selected) {
+    const use = selected || 'Ireland';
+    return COUNTRY_OPTIONS.map(function (c) {
+      return '<option value="' + c + '"' + (c === use ? ' selected' : '') + '>' + c + '</option>';
+    }).join('');
+  }
 
   function renderJobDetail(job) {
     document.getElementById('job-detail-title').textContent = job.jobTypeLabel;
@@ -1968,11 +2054,12 @@
     render();
   }
 
-  function handleLogin(name, trade, region, email, businessName, tradeRegNumber, attested) {
+  function handleLogin(name, trade, region, email, businessName, addressLine1, addressLine2, addressCounty, addressEircode, addressCountry, tradeRegNumber, attested) {
     const nameError = document.getElementById('login-name-error');
     const tradeError = document.getElementById('login-trade-error');
     const regionError = document.getElementById('login-region-error');
     const businessNameError = document.getElementById('login-business-name-error');
+    const addressError = document.getElementById('login-address-error');
     const tradeRegError = document.getElementById('login-trade-reg-error');
     const attestError = document.getElementById('login-attest-error');
 
@@ -1980,6 +2067,11 @@
     const trimmedTrade = (trade || '').trim();
     const trimmedRegion = (region || '').trim();
     const trimmedBusinessName = (businessName || '').trim();
+    const trimmedLine1 = (addressLine1 || '').trim();
+    const trimmedLine2 = (addressLine2 || '').trim();
+    const county = addressCounty || '';
+    const trimmedEircode = (addressEircode || '').trim();
+    const country = addressCountry || '';
     const trimmedTradeReg = (tradeRegNumber || '').trim();
 
     // Clear all errors up front so a stale error from a previous submit
@@ -1989,6 +2081,7 @@
     tradeError.hidden = true;
     regionError.hidden = true;
     businessNameError.hidden = true;
+    addressError.hidden = true;
     tradeRegError.hidden = true;
     attestError.hidden = true;
 
@@ -2020,6 +2113,23 @@
     }
     businessNameError.hidden = true;
 
+    if (!trimmedLine1) {
+      addressError.hidden = false;
+      document.getElementById('login-address-line1').focus();
+      return;
+    }
+    if (!county) {
+      addressError.hidden = false;
+      document.getElementById('login-address-county').focus();
+      return;
+    }
+    if (!trimmedEircode) {
+      addressError.hidden = false;
+      document.getElementById('login-address-eircode').focus();
+      return;
+    }
+    addressError.hidden = true;
+
     if (!trimmedTradeReg) {
       tradeRegError.hidden = false;
       document.getElementById('login-trade-reg').focus();
@@ -2040,6 +2150,13 @@
       region: trimmedRegion,
       email: (email || '').trim(),
       businessName: trimmedBusinessName,
+      businessAddress: formatAddress({
+        line1: trimmedLine1,
+        line2: trimmedLine2,
+        county: county,
+        eircode: trimmedEircode,
+        country: country,
+      }),
       tradeRegNumber: trimmedTradeReg,
       loginAt: Date.now(),
     };
@@ -2071,6 +2188,11 @@
         document.getElementById('login-region').value,
         document.getElementById('login-email').value,
         document.getElementById('login-business-name').value,
+        document.getElementById('login-address-line1').value,
+        document.getElementById('login-address-line2').value,
+        document.getElementById('login-address-county').value,
+        document.getElementById('login-address-eircode').value,
+        document.getElementById('login-address-country').value,
         document.getElementById('login-trade-reg').value,
         document.getElementById('login-attest').checked
       );
@@ -2272,12 +2394,37 @@
         case 'download-pdf':
           window.print();
           break;
-        case 'use-example-address': {
-          const input = document.getElementById('new-job-customer-address');
-          const pick = EXAMPLE_ADDRESSES[Math.floor(Math.random() * EXAMPLE_ADDRESSES.length)];
+        case 'use-example-name': {
+          const input = document.getElementById('new-job-customer-name');
           if (input) {
-            input.value = pick;
+            input.value = EXAMPLE_CUSTOMER_NAMES[Math.floor(Math.random() * EXAMPLE_CUSTOMER_NAMES.length)];
+            document.getElementById('new-job-customer-name-error').hidden = true;
+          }
+          break;
+        }
+        case 'use-example-address': {
+          const line1Input = document.getElementById('new-job-address-line1');
+          if (line1Input) {
+            const pick = EXAMPLE_ADDRESSES[Math.floor(Math.random() * EXAMPLE_ADDRESSES.length)];
+            line1Input.value = pick.line1;
+            document.getElementById('new-job-address-line2').value = pick.line2;
+            document.getElementById('new-job-address-county').value = pick.county;
+            document.getElementById('new-job-address-eircode').value = pick.eircode;
+            document.getElementById('new-job-address-country').value = pick.country;
             document.getElementById('new-job-customer-address-error').hidden = true;
+          }
+          break;
+        }
+        case 'use-example-business-address': {
+          const line1Input = document.getElementById('login-address-line1');
+          if (line1Input) {
+            const pick = EXAMPLE_BUSINESS_ADDRESSES[Math.floor(Math.random() * EXAMPLE_BUSINESS_ADDRESSES.length)];
+            line1Input.value = pick.line1;
+            document.getElementById('login-address-line2').value = pick.line2;
+            document.getElementById('login-address-county').value = pick.county;
+            document.getElementById('login-address-eircode').value = pick.eircode;
+            document.getElementById('login-address-country').value = pick.country;
+            document.getElementById('login-address-error').hidden = true;
           }
           break;
         }

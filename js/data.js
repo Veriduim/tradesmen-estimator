@@ -437,3 +437,17 @@ const LABOUR_RATE_PRESETS = {
     other: { perHour: 62, perJob: 310 },
   },
 };
+
+// All 32 traditional Irish counties (Republic + Northern Ireland), one
+// flat alphabetical list rather than filtered by country — an address
+// selector shouldn't require guessing which side of the border a county
+// falls on before finding it.
+const IRISH_COUNTIES = [
+  'Antrim', 'Armagh', 'Carlow', 'Cavan', 'Clare', 'Cork', 'Derry', 'Donegal',
+  'Down', 'Dublin', 'Fermanagh', 'Galway', 'Kerry', 'Kildare', 'Kilkenny',
+  'Laois', 'Leitrim', 'Limerick', 'Longford', 'Louth', 'Mayo', 'Meath',
+  'Monaghan', 'Offaly', 'Roscommon', 'Sligo', 'Tipperary', 'Tyrone',
+  'Waterford', 'Westmeath', 'Wexford', 'Wicklow',
+];
+
+const COUNTRY_OPTIONS = ['Ireland', 'Northern Ireland', 'United Kingdom'];

@@ -5,7 +5,7 @@
  *
  * State shape:
  * {
- *   session: { name, trade, region, email, businessName, tradeRegNumber, loginAt } | null,
+ *   session: { name, trade, region, email, businessName, businessAddress, tradeRegNumber, loginAt } | null,
  *   currentJobId: string | null,
  *   viewingProfile: boolean,
  *   startingNewJob: boolean,

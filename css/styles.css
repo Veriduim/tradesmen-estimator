@@ -218,6 +218,20 @@ main {
   font-weight: 600;
   color: var(--ink-dim);
 }
+.field-group-label {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--ink-dim);
+  margin-top: 4px;
+}
+.field-row {
+  display: flex;
+  gap: 10px;
+}
+.field-row .field {
+  flex: 1;
+  min-width: 0;
+}
 .trade-group {
   display: flex;
   flex-wrap: wrap;
@@ -530,6 +544,18 @@ main {
   display: flex;
   flex-direction: column;
   padding-bottom: 24px;
+}
+
+/* New-job intake screen: every other job-detail-body section supplies its
+   own horizontal padding via its own wrapper (.mat-list, .add-item-form,
+   .action-bar, .status-panel all carry 16px side margins/padding) — this
+   screen's fields and buttons had none, so on narrow phones they ran edge
+   to edge and clipped. */
+.new-job-form {
+  padding: 4px 16px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
 
 #profile-body {
